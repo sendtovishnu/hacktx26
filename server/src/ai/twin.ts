@@ -8,7 +8,8 @@ const decisionsSchema = z.array(
   z.object({
     friend_id: z.string(),
     message: z.string().min(1),
-    gesture_type: z.enum(['drop_off', 'hangout', 'message']).catch('drop_off'),
+    // A's gestureFor rule overrides this anyway, so don't reject a decision over it.
+    gesture_type: z.enum(['drop_off', 'hangout', 'message']).catch('drop_off' as const),
     surprise_note: z.string().min(1),
   }),
 );

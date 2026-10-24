@@ -28,7 +28,7 @@ ${checkin ? `\nThe student's own check-in: "${checkin}"` : ''}`;
 }
 
 export function twinPrompt(user: User, signals: Signals, friends: TwinFriendInput[]) {
-  const name = user.name;
+  const name = user.name.split(' ')[0];
   const prefs = [
     user.preferences.coffeeOrder && `coffee order: ${user.preferences.coffeeOrder}`,
     user.preferences.likes === 'company' ? 'prefers company over space' : 'prefers space over company',
@@ -36,7 +36,7 @@ export function twinPrompt(user: User, signals: Signals, friends: TwinFriendInpu
 
   const friendLines = friends.map((f) => ({
     friend_id: f.friend.id,
-    name: f.friend.name,
+    name: f.friend.name.split(' ')[0],
     tier: f.tier,
     shared_free_minutes: f.sharedFreeMinutes,
     may_hear: f.tier === 'closest' ? signals.summaryForClosest : signals.summaryForClose,

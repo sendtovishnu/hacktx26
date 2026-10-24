@@ -1,7 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
-import type { ZodType } from 'zod';
-
 export type Provider = 'gemini' | 'muse';
+
+// Any zod schema (v3 or v4) whose parsed output is T.
+export interface Schema<T> {
+  safeParse(value: unknown): { success: true; data: T } | { success: false; error: { issues: unknown[] } };
+}
 
 const TIMEOUT_MS = 20_000;
 
@@ -59,7 +62,7 @@ const callers: Record<Provider, (prompt: string) => Promise<string>> = { gemini:
  */
 export async function generateJSON<T>(
   prompt: string,
-  schema: ZodType<T>,
+  schema: Schema<T>,
   fallback: T,
   provider: Provider = defaultProvider(),
 ): Promise<T> {

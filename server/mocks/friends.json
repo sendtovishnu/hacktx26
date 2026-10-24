@@ -1,0 +1,12 @@
+{
+  "u_maya": [
+    { "friendId": "u_jay", "tier": "closest" },
+    { "friendId": "u_priya", "tier": "friend" }
+  ],
+  "u_jay": [
+    { "friendId": "u_maya", "tier": "closest" }
+  ],
+  "u_priya": [
+    { "friendId": "u_maya", "tier": "close" }
+  ]
+}

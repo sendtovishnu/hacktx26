@@ -1,0 +1,20 @@
+[
+  {
+    "id": "n_1",
+    "fromUserId": "u_maya",
+    "toFriendId": "u_jay",
+    "message": "Maya's midterm is Tuesday and she's camping at PCL — she'd love company and an oat latte.",
+    "contextLevel": "closest",
+    "status": "sent",
+    "createdAt": "2026-10-24T10:00:00-05:00"
+  },
+  {
+    "id": "n_2",
+    "fromUserId": "u_maya",
+    "toFriendId": "u_priya",
+    "message": "Maya looks stretched this week with exam prep. A short supportive message would help.",
+    "contextLevel": "close",
+    "status": "seen",
+    "createdAt": "2026-10-24T10:01:00-05:00"
+  }
+]

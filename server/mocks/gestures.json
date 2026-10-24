@@ -1,0 +1,12 @@
+[
+  {
+    "id": "g_1",
+    "nudgeId": "n_1",
+    "fromFriendId": "u_jay",
+    "toUserId": "u_maya",
+    "type": "drop_off",
+    "placeName": "Houndstooth Coffee",
+    "note": "Oat latte inbound — hang tight at PCL.",
+    "deliveredAt": "2026-10-24T11:30:00-05:00"
+  }
+]

@@ -1,0 +1,26 @@
+[
+  {
+    "from": "cs429-staff@cs.utexas.edu",
+    "subject": "Reminder: Midterm Tuesday",
+    "snippet": "Your CS 429 midterm is this Tuesday. Bring your UT ID and arrive 10 minutes early.",
+    "date": "2026-10-24T09:12:00-05:00"
+  },
+  {
+    "from": "canvas@utexas.edu",
+    "subject": "Assignment due tonight: Problem set 6",
+    "snippet": "Problem set 6 is due tonight at 11:59pm. Late submissions lose 10% per day.",
+    "date": "2026-10-24T08:01:00-05:00"
+  },
+  {
+    "from": "jay@utexas.edu",
+    "subject": "Coffee after midterm?",
+    "snippet": "Hey — free after your exam? Happy to bring an oat latte to PCL.",
+    "date": "2026-10-23T19:40:00-05:00"
+  },
+  {
+    "from": "newsletter@localcoffee.example",
+    "subject": "20% off this weekend",
+    "snippet": "Promo code FALL20 — not relevant to your week.",
+    "date": "2026-10-22T07:00:00-05:00"
+  }
+]
