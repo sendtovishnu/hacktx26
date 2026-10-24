@@ -37,12 +37,25 @@ function oauthClient() {
   );
 }
 
+const SCOPE_LIST = GOOGLE_SCOPES.split(' ');
+
+/** Redirect URI for browser OAuth (must match Google Cloud Web client settings). */
+export function webRedirectUri(): string {
+  const explicit = process.env.GOOGLE_OAUTH_REDIRECT_URI?.trim();
+  if (explicit) return explicit;
+  const base = process.env.PUBLIC_BASE_URL?.trim().replace(/\/$/, '');
+  if (base) return `${base}/api/auth/google/callback`;
+  return 'http://localhost:3000/api/auth/google/callback';
+}
+
 /**
- * Exchanges the iOS app's serverAuthCode. Google wants redirect_uri present but
- * empty for codes from a native sign-in SDK; googleapis drops empty values, so
- * this one request goes direct. GOOGLE_OAUTH_REDIRECT_URI overrides it if needed.
+ * Exchanges an auth code. iOS native codes need redirect_uri present but empty;
+ * browser codes need the exact registered redirect URI.
  */
-async function exchangeServerAuthCode(code: string): Promise<{
+async function exchangeAuthCode(
+  code: string,
+  redirectUri: string,
+): Promise<{
   access_token?: string;
   refresh_token?: string;
   scope?: string;
@@ -54,15 +67,36 @@ async function exchangeServerAuthCode(code: string): Promise<{
       code,
       client_id: process.env.GOOGLE_WEB_CLIENT_ID ?? '',
       client_secret: process.env.GOOGLE_WEB_CLIENT_SECRET ?? '',
-      redirect_uri: process.env.GOOGLE_OAUTH_REDIRECT_URI ?? '',
+      redirect_uri: redirectUri,
       grant_type: 'authorization_code',
     }),
   });
   const body = (await res.json()) as Record<string, string>;
   if (!res.ok) {
-    throw new Error(`Google token exchange failed: ${body.error ?? res.status} ${body.error_description ?? ''}`.trim());
+    throw new Error(
+      `Google token exchange failed: ${body.error ?? res.status} ${body.error_description ?? ''}`.trim(),
+    );
   }
   return body;
+}
+
+/** Browser sign-in URL. `state` carries the demo user id (u_maya / u_jay / u_priya). */
+export function getGoogleAuthUrl(userId: string): string {
+  if (!googleStatus().configured) {
+    throw new Error('GOOGLE_WEB_CLIENT_ID / GOOGLE_WEB_CLIENT_SECRET are not set');
+  }
+  const client = new google.auth.OAuth2(
+    process.env.GOOGLE_WEB_CLIENT_ID,
+    process.env.GOOGLE_WEB_CLIENT_SECRET,
+    webRedirectUri(),
+  );
+  return client.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: SCOPE_LIST,
+    state: userId,
+    include_granted_scopes: true,
+  });
 }
 
 /** True when a stored connection has a real access token (not a stub). */
@@ -72,9 +106,23 @@ export async function hasRealGoogleTokens(userId: string): Promise<boolean> {
   return Boolean(conn?.accessToken && conn.accessToken !== 'stub');
 }
 
+async function storeGoogleTokens(
+  userId: string,
+  tokens: { access_token?: string; refresh_token?: string; scope?: string },
+): Promise<void> {
+  if (!useDatabase()) return;
+  await upsertConnection({
+    userId,
+    provider: 'google',
+    accessToken: tokens.access_token ?? null,
+    refreshToken: tokens.refresh_token ?? null,
+    scopes: tokens.scope ?? GOOGLE_SCOPES,
+  });
+}
+
 /**
- * Exchange an auth code for tokens when credentials are present and USE_MOCKS
- * is not forced. Otherwise record an optional stub connection and succeed.
+ * Exchange an iOS serverAuthCode (empty redirect_uri) for tokens when credentials
+ * are present and USE_MOCKS is not forced. Otherwise record a stub connection.
  */
 export async function exchangeGoogleAuth(
   userId: string,
@@ -97,16 +145,22 @@ export async function exchangeGoogleAuth(
     throw new Error('Missing authorization code for Google exchange');
   }
 
-  const tokens = await exchangeServerAuthCode(code);
-  if (useDatabase()) {
-    await upsertConnection({
-      userId,
-      provider: 'google',
-      accessToken: tokens.access_token ?? null,
-      refreshToken: tokens.refresh_token ?? null,
-      scopes: tokens.scope ?? GOOGLE_SCOPES,
-    });
+  // iOS native SDK codes require redirect_uri present but empty.
+  const tokens = await exchangeAuthCode(code, '');
+  await storeGoogleTokens(userId, tokens);
+  return { connected: true };
+}
+
+/** Exchange a browser OAuth code (full redirect URI) and store tokens. */
+export async function exchangeGoogleAuthWeb(
+  userId: string,
+  code: string,
+): Promise<{ connected: true }> {
+  if (!code?.trim()) {
+    throw new Error('Missing authorization code for Google exchange');
   }
+  const tokens = await exchangeAuthCode(code, webRedirectUri());
+  await storeGoogleTokens(userId, tokens);
   return { connected: true };
 }
 
