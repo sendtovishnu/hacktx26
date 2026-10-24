@@ -101,6 +101,23 @@ final class MockAPI: TwinAPI {
         return FriendEntry(friend: friend, tier: tier)
     }
 
+    func addFriend(friendId: String, tier: Tier) async throws -> FriendEntry {
+        await delay()
+        guard let friend = user(friendId), friendId != currentUserId else {
+            throw APIError.notConfigured("That person isn't on Twin.")
+        }
+        if let index = links.firstIndex(where: { $0.userId == currentUserId && $0.friendId == friendId }) {
+            links[index].tier = tier
+        } else {
+            links.append(Link(userId: currentUserId, friendId: friendId, tier: tier))
+        }
+        // Friendship is mutual; the other person starts with you in their outer circle until they choose.
+        if !links.contains(where: { $0.userId == friendId && $0.friendId == currentUserId }) {
+            links.append(Link(userId: friendId, friendId: currentUserId, tier: .friend))
+        }
+        return FriendEntry(friend: friend, tier: tier)
+    }
+
     func exchangeGoogleCode(_ code: String) async throws {
         await delay()
         googleConnected = true

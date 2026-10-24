@@ -36,11 +36,17 @@ struct PrivacyView: View {
                     Eyebrow(text: "Connected sources")
                     sourceRow("Google Calendar and Gmail", connected: info?.sources.google ?? false)
                     sourceRow("Calendar file", connected: info?.sources.ics ?? false)
+                    Text("Manage these from your account: tap your photo in the top right.")
+                        .font(Theme.small(12))
+                        .foregroundStyle(Theme.ink3)
                 }
                 .card()
 
                 VStack(alignment: .leading, spacing: 12) {
                     Eyebrow(text: "Who can hear about you")
+                    Text("Change someone's circle from their profile on Home.")
+                        .font(Theme.small(12))
+                        .foregroundStyle(Theme.ink3)
                     ForEach(info?.friends ?? []) { entry in
                         HStack(spacing: 12) {
                             Avatar(name: entry.friend.name, size: 32)
@@ -120,7 +126,7 @@ struct PrivacyView: View {
             .padding(.bottom, 24)
         }
         .screenBackground()
-        .withUserPicker()
+        .withAccountButton()
         .task(id: state.reloadToken) {
             serverURLDraft = state.serverURL
             await load()

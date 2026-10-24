@@ -8,12 +8,14 @@
 
 ## Try the demo flow in mock mode
 
-1. Pick **Maya** in the top-right user menu. Twin tab > **Refresh my twin**. The twin reads a midterm week and nudges 1 friend.
-2. Switch to **Jay**. A notification arrives within 5 seconds; the Nudges tab shows Maya. Open it and tap **Do this** on a suggestion.
-3. Switch back to **Maya**. The surprise screen appears.
-4. **Priya** never gets a nudge about Maya, because Maya ranks her as Friend.
+First launch shows Welcome, then Sign in (tap a demo account chip, or use Apple or Google, which sign in as Maya), then a short setup.
 
-Mock state lives in memory, so relaunching resets it.
+1. As **Maya**: Twin tab > **Refresh my twin**. The twin reads a midterm week. It never says whether it nudged anyone, so the surprise stays a surprise.
+2. Tap your photo (top right) > **Demo: switch account** > **Jay**. A notification arrives; the Nudges tab shows Maya. Open it and tap **Do this**.
+3. Switch back to **Maya**. The surprise screen appears.
+4. **Priya** never gets a nudge about Maya, because Maya keeps her in the Friends circle.
+
+Circles are set when you add someone (Add friends tab) and changed only from a friend's profile on Home. Mock state lives in memory, so relaunching resets it. To see the welcome and sign-in screens again, sign out from Account (or delete the app from the simulator).
 
 ## Switch to the real server
 
@@ -22,7 +24,7 @@ Privacy tab > Developer: turn off **Use mock data**, set the server URL, tap **A
 - Simulator: `http://localhost:3000`
 - Physical phone: the tunnel URL from Person A (`cloudflared tunnel --url http://localhost:3000`)
 
-## Turn on Google sign-in (Connect tab)
+## Turn on Google sign-in (Account > Connected accounts)
 
 1. File > Add Package Dependencies > `https://github.com/google/GoogleSignIn-iOS`, add the **GoogleSignIn** product to the Twin target. The sign-in code switches on automatically once the package is present.
 2. In `Twin-Info.plist`, fill in:
@@ -38,6 +40,6 @@ Privacy tab > Developer: turn off **Use mock data**, set the server URL, tap **A
 | `Twin/API.swift` | `TwinAPI` protocol and the real `APIClient` (sends `X-Demo-User`) |
 | `Twin/MockAPI.swift` | In-memory implementation of the full flow |
 | `Twin/AppState.swift` | Current user, API choice, 5-second polling, local notifications |
-| `Twin/Views/` | Friends, Connect, Twin, Nudges and suggestions, Surprise, Privacy |
+| `Twin/Views/` | Welcome, sign-in and setup; Home (orbits and circles); Add friends; Twin; Nudges and suggestions; Surprise; Privacy; Account |
 
 The app's display name is set by `INFOPLIST_KEY_CFBundleDisplayName` in the target's build settings; change it there once the team picks a name.

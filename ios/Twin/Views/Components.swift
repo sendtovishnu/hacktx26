@@ -25,46 +25,33 @@ struct Avatar: View {
     }
 }
 
-struct UserPicker: View {
+/// Your avatar in the top right. Opens Account: connected calendars and email, demo switching, sign out.
+struct AccountButton: View {
     @EnvironmentObject private var state: AppState
+    @State private var showAccount = false
 
     var body: some View {
-        Menu {
-            Section("Demo as") {
-                ForEach(state.users) { user in
-                    Button {
-                        Task { await state.switchUser(to: user.id) }
-                    } label: {
-                        if user.id == state.demoUserId {
-                            Label(user.name, systemImage: "checkmark")
-                        } else {
-                            Text(user.name)
-                        }
-                    }
-                }
-            }
+        Button {
+            showAccount = true
         } label: {
-            HStack(spacing: 7) {
-                Avatar(name: state.me?.name ?? "?", size: 28)
-                Text(state.me?.name ?? "Pick user")
-                    .font(Theme.semibold(15))
-                    .foregroundStyle(Theme.ink)
-            }
-            .padding(.leading, 4)
-            .padding(.trailing, 10)
-            .padding(.vertical, 4)
-            .background(Color.white, in: Capsule())
-            .shadow(color: Theme.ink.opacity(0.08), radius: 6, y: 2)
+            Avatar(name: state.me?.name ?? "?", size: 34)
+                .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                .shadow(color: Theme.ink.opacity(0.12), radius: 6, y: 2)
+        }
+        .accessibilityLabel("Account")
+        .sheet(isPresented: $showAccount) {
+            AccountView()
+                .presentationDragIndicator(.visible)
         }
     }
 }
 
 extension View {
-    /// Adds the demo user switcher and hides the system title so screens can use ScreenHeader.
-    func withUserPicker() -> some View {
+    /// Adds the account avatar and hides the system title so screens can use ScreenHeader.
+    func withAccountButton() -> some View {
         self
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { UserPicker() }
+                ToolbarItem(placement: .topBarTrailing) { AccountButton() }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)

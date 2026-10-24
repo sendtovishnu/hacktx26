@@ -32,7 +32,7 @@ struct TwinView: View {
             .padding(.bottom, 24)
         }
         .screenBackground()
-        .withUserPicker()
+        .withAccountButton()
         .task(id: state.reloadToken) { await load() }
     }
 

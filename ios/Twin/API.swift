@@ -11,6 +11,7 @@ protocol TwinAPI: AnyObject {
     func me() async throws -> User
     func friends() async throws -> [FriendEntry]
     func setTier(friendId: String, tier: Tier) async throws -> FriendEntry
+    func addFriend(friendId: String, tier: Tier) async throws -> FriendEntry
     func exchangeGoogleCode(_ code: String) async throws
     func ingestGoogle() async throws -> IngestResult
     func ingestICS(data: Data, filename: String) async throws -> IngestResult
@@ -100,6 +101,11 @@ final class APIClient: TwinAPI {
     func setTier(friendId: String, tier: Tier) async throws -> FriendEntry {
         struct Body: Encodable { let tier: Tier }
         return try await call("PATCH", "api/friends/\(friendId)", body: Body(tier: tier))
+    }
+
+    func addFriend(friendId: String, tier: Tier) async throws -> FriendEntry {
+        struct Body: Encodable { let friendId: String; let tier: Tier }
+        return try await call("POST", "api/friends", body: Body(friendId: friendId, tier: tier))
     }
 
     func exchangeGoogleCode(_ code: String) async throws {

@@ -55,7 +55,7 @@ struct NudgesView: View {
             .padding(.bottom, 24)
         }
         .screenBackground()
-        .withUserPicker()
+        .withAccountButton()
         .navigationDestination(for: Nudge.self) { nudge in
             SuggestionsView(nudge: nudge)
         }

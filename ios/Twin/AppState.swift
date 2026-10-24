@@ -17,6 +17,12 @@ final class AppState: ObservableObject {
     @Published var serverURL: String {
         didSet { UserDefaults.standard.set(serverURL, forKey: "serverURL") }
     }
+    @Published var isSignedIn: Bool {
+        didSet { UserDefaults.standard.set(isSignedIn, forKey: "isSignedIn") }
+    }
+    @Published var hasCompletedSetup: Bool {
+        didSet { UserDefaults.standard.set(hasCompletedSetup, forKey: "hasCompletedSetup") }
+    }
 
     @Published private(set) var api: TwinAPI
     @Published var users: [User] = []
@@ -42,6 +48,8 @@ final class AppState: ObservableObject {
         demoUserId = userId
         useMockAPI = useMock
         serverURL = url
+        isSignedIn = defaults.bool(forKey: "isSignedIn")
+        hasCompletedSetup = defaults.bool(forKey: "hasCompletedSetup")
         api = AppState.makeAPI(useMock: useMock, serverURL: url, userId: userId)
     }
 
@@ -94,6 +102,24 @@ final class AppState: ObservableObject {
         resetFeed()
         reloadToken += 1
         await start()
+    }
+
+    /// Demo sign-in: an email that matches a seeded user signs in as them, anything else signs in as Maya.
+    func signIn(email: String? = nil) async {
+        if users.isEmpty { await reloadUsers() }
+        let typed = (email ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let match = users.first { $0.email.lowercased() == typed }
+        let id = match?.id ?? "u_maya"
+        if id != demoUserId {
+            await switchUser(to: id)
+        } else {
+            await reloadMe()
+        }
+        isSignedIn = true
+    }
+
+    func signOut() {
+        isSignedIn = false
     }
 
     func updateMe(_ user: User) {
@@ -158,6 +184,11 @@ final class AppState: ObservableObject {
 
 final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     static let shared = Notifier()
+
+    /// Call at launch so banners show while the app is open.
+    static func install() {
+        UNUserNotificationCenter.current().delegate = shared
+    }
 
     static func requestPermission() {
         UNUserNotificationCenter.current().delegate = shared
