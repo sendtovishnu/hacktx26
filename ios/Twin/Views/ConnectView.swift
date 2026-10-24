@@ -18,54 +18,73 @@ struct ConnectView: View {
     ]
 
     var body: some View {
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Your twin keeps up with your week so your closest friends can show up for you, without you having to ask.")
-                    Text("Friends never see your calendar or email. Only a one-line summary ever leaves your account.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 4)
-            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                ScreenHeader(eyebrow: "Connect", title: "Help your twin keep up")
 
-            Section("Sources") {
-                Button {
-                    Task { await connectGoogle() }
-                } label: {
-                    Label("Connect Google Calendar and Gmail", systemImage: "calendar.badge.plus")
-                }
-                .disabled(working)
+                Text("Your twin reads your week so your closest friends can show up for you, without you having to ask.")
+                    .font(Theme.body())
+                    .foregroundStyle(Theme.ink2)
 
-                Button {
-                    showImporter = true
-                } label: {
-                    Label("Upload a calendar file (.ics)", systemImage: "doc.badge.plus")
-                }
-                .disabled(working)
-
-                if working {
-                    HStack {
-                        ProgressView()
-                        Text("Connecting...").foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 12) {
+                    Eyebrow(text: "Sources")
+                    sourceButton(
+                        title: "Google Calendar and Gmail",
+                        subtitle: "Read-only. Emails are summarized, then deleted.",
+                        systemImage: "calendar.badge.plus"
+                    ) {
+                        Task { await connectGoogle() }
                     }
+                    Rectangle().fill(Theme.cream).frame(height: 1)
+                    sourceButton(
+                        title: "Upload a calendar file",
+                        subtitle: "An .ics export from any calendar app",
+                        systemImage: "doc.badge.plus"
+                    ) {
+                        showImporter = true
+                    }
+                    if working {
+                        HStack(spacing: 10) {
+                            ProgressView().tint(Theme.ember)
+                            Text("Connecting...").font(Theme.small()).foregroundStyle(Theme.ink2)
+                        }
+                    }
+                    if let status {
+                        Pill(text: status, tone: .sage, systemImage: "checkmark")
+                    }
+                    ErrorText(message: error)
                 }
-                if let status {
-                    Label(status, systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                }
-                ErrorText(message: error)
-            }
+                .card()
 
-            Section {
-                Toggle("Let my closest friends surprise me when I'm having a rough week", isOn: optInBinding)
-            } header: {
-                Text("Surprise support")
-            } footer: {
-                Text("You won't be asked each time. Your twin decides when a nudge would help, and only close and closest friends can receive one.")
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .center, spacing: 14) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Surprise support").font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
+                            Text("Let my closest friends surprise me when I'm having a rough week")
+                                .font(Theme.small())
+                                .foregroundStyle(Theme.ink2)
+                        }
+                        Spacer()
+                        Toggle("", isOn: optInBinding)
+                            .labelsHidden()
+                            .tint(Theme.sage)
+                    }
+                    Text("You won't be asked each time. Only close and closest friends can ever receive a nudge.")
+                        .font(Theme.small(12))
+                        .foregroundStyle(Theme.ink3)
+                }
+                .card()
+
+                Label("Friends never see your calendar or email. Only a one-line summary leaves your account.", systemImage: "lock.fill")
+                    .font(Theme.small())
+                    .foregroundStyle(Theme.ink2)
+                    .labelStyle(SageIconLabelStyle())
+                    .padding(.horizontal, 4)
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
         }
-        .navigationTitle("Connect")
+        .screenBackground()
         .withUserPicker()
         .task(id: state.reloadToken) {
             status = nil
@@ -74,6 +93,25 @@ struct ConnectView: View {
         .fileImporter(isPresented: $showImporter, allowedContentTypes: icsTypes) { result in
             Task { await importICS(result) }
         }
+    }
+
+    private func sourceButton(title: String, subtitle: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                IconBadge(systemImage: systemImage)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
+                    Text(subtitle).font(Theme.small()).foregroundStyle(Theme.ink2)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.ink3)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(working)
     }
 
     private var icsTypes: [UTType] {
@@ -110,7 +148,7 @@ struct ConnectView: View {
                 try await state.api.exchangeGoogleCode(code)
             }
             let result = try await state.api.ingestGoogle()
-            status = "Connected: \(result.events) events and \(result.emails ?? 0) emails"
+            status = "Connected · \(result.events) events, \(result.emails ?? 0) emails"
         } catch {
             self.error = error.localizedDescription
         }
@@ -164,7 +202,7 @@ struct ConnectView: View {
             }
             let data = try Data(contentsOf: url)
             let response = try await state.api.ingestICS(data: data, filename: url.lastPathComponent)
-            status = "Imported \(response.events) events from \(url.lastPathComponent)"
+            status = "Imported \(response.events) events"
         } catch {
             self.error = error.localizedDescription
         }

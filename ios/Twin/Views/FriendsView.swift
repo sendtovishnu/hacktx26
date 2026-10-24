@@ -6,21 +6,36 @@ struct FriendsView: View {
     @State private var error: String?
 
     var body: some View {
-        List {
-            Section {
-                ForEach(friends) { entry in
-                    FriendRow(entry: entry) { tier in
-                        Task { await setTier(entry, to: tier) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                ScreenHeader(eyebrow: state.me?.name ?? "You", title: "Your people")
+
+                CircleOfPeople(me: state.me?.name ?? "?", friends: friends)
+                    .frame(maxWidth: .infinity)
+
+                VStack(spacing: 18) {
+                    ForEach(Array(friends.enumerated()), id: \.element.id) { index, entry in
+                        if index > 0 {
+                            Rectangle().fill(Theme.cream).frame(height: 1)
+                        }
+                        FriendRow(entry: entry) { tier in
+                            Task { await setTier(entry, to: tier) }
+                        }
                     }
                 }
-            } footer: {
-                Text("Only close and closest friends can ever be nudged about you. Nobody sees how you ranked them.")
+                .card()
+
+                Label("Nobody ever sees how you ranked them.", systemImage: "eye.slash")
+                    .font(Theme.small())
+                    .foregroundStyle(Theme.ink2)
+                    .padding(.horizontal, 4)
+
+                ErrorText(message: error)
             }
-            if error != nil {
-                Section { ErrorText(message: error) }
-            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
         }
-        .navigationTitle("Friends")
+        .screenBackground()
         .withUserPicker()
         .task(id: state.reloadToken) { await load() }
         .refreshable { await load() }
@@ -49,27 +64,63 @@ struct FriendsView: View {
     }
 }
 
+/// Concentric rings: you in the middle, friends placed by how close you ranked them.
+private struct CircleOfPeople: View {
+    let me: String
+    let friends: [FriendEntry]
+
+    private func radius(for tier: Tier) -> CGFloat {
+        switch tier {
+        case .closest: return 52
+        case .close: return 84
+        case .friend: return 103
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .strokeBorder(Theme.linen, style: StrokeStyle(lineWidth: 1.5, dash: [5, 5]))
+                .frame(width: 206, height: 206)
+            Circle().fill(Theme.glow).frame(width: 140, height: 140)
+            Circle().fill(Theme.blush).frame(width: 78, height: 78)
+            Avatar(name: me, size: 46)
+
+            ForEach(Array(friends.enumerated()), id: \.element.id) { index, entry in
+                let angle = Angle.degrees(-140 + Double(index) * 115)
+                let r = radius(for: entry.tier)
+                Avatar(name: entry.friend.name, size: entry.tier == .closest ? 34 : 30)
+                    .offset(x: r * CGFloat(cos(angle.radians)), y: r * CGFloat(sin(angle.radians)))
+                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: entry.tier)
+            }
+
+            ringLabel("Closest", color: Theme.emberDeep, x: 66, y: -34)
+            ringLabel("Close", color: Theme.ink2, x: 92, y: -62)
+            ringLabel("Friends", color: Theme.ink3, x: 112, y: -96)
+        }
+        .frame(height: 220)
+    }
+
+    private func ringLabel(_ text: String, color: Color, x: CGFloat, y: CGFloat) -> some View {
+        Eyebrow(text: text, color: color).offset(x: x, y: y)
+    }
+}
+
 private struct FriendRow: View {
     let entry: FriendEntry
     let onChange: (Tier) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 Avatar(name: entry.friend.name)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.friend.name).font(.headline)
-                    Text(caption).font(.caption).foregroundStyle(.secondary)
+                    Text(entry.friend.name).font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
+                    Text(caption).font(Theme.small()).foregroundStyle(Theme.ink2)
                 }
             }
-            Picker("Tier", selection: Binding(get: { entry.tier }, set: onChange)) {
-                ForEach(Tier.allCases) { tier in
-                    Text(tier.label).tag(tier)
-                }
-            }
-            .pickerStyle(.segmented)
+            TierPicker(selection: entry.tier, onChange: onChange)
         }
-        .padding(.vertical, 6)
     }
 
     private var caption: String {

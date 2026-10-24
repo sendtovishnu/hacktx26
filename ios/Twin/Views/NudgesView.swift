@@ -4,42 +4,57 @@ struct NudgesView: View {
     @EnvironmentObject private var state: AppState
 
     var body: some View {
-        List {
-            if !state.surprises.isEmpty {
-                Section("Surprises for you") {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                ScreenHeader(eyebrow: "Nudges", title: "Friends who could use you")
+
+                if !state.surprises.isEmpty {
+                    Eyebrow(text: "Surprises for you")
                     ForEach(state.surprises) { gesture in
                         Button {
                             state.activeSurprise = gesture
                         } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "gift.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(Color.accentColor)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("From \(gesture.fromFriend.name)").font(.headline)
-                                    Text(gesture.note).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                            HStack(spacing: 14) {
+                                IconBadge(systemImage: "gift.fill", size: 46, radius: 16)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("From \(gesture.fromFriend.name)").font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
+                                    Text(gesture.note).font(Theme.small()).foregroundStyle(Theme.ink2).lineLimit(2)
                                 }
+                                Spacer(minLength: 0)
                             }
+                            .card()
                         }
                         .buttonStyle(.plain)
                     }
                 }
-            }
 
-            Section("Friends who could use you") {
                 if state.nudges.isEmpty {
-                    Text("Nothing right now. When a close friend could use support, you'll hear about it here.")
-                        .foregroundStyle(.secondary)
+                    VStack(spacing: 14) {
+                        TwinMark(width: 72).opacity(0.8)
+                        Text("All quiet")
+                            .font(Theme.heading())
+                            .foregroundStyle(Theme.ink)
+                        Text("When someone close to you could use support, their twin will let you know here.")
+                            .font(Theme.body())
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(Theme.ink2)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
+                    .padding(.horizontal, 16)
                 } else {
                     ForEach(state.nudges) { nudge in
                         NavigationLink(value: nudge) {
                             NudgeRow(nudge: nudge)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
         }
-        .navigationTitle("Nudges")
+        .screenBackground()
         .withUserPicker()
         .navigationDestination(for: Nudge.self) { nudge in
             SuggestionsView(nudge: nudge)
@@ -52,23 +67,30 @@ private struct NudgeRow: View {
     let nudge: Nudge
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Avatar(name: nudge.fromUser.name)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("\(nudge.fromUser.name) could use you").font(.headline)
-                    Spacer()
-                    Text(DateText.ago(nudge.createdAt)).font(.caption).foregroundStyle(.secondary)
-                }
-                Text(nudge.message).font(.subheadline)
-                if nudge.status == "acted" {
-                    Label("You helped", systemImage: "checkmark.seal.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.green)
+        HStack(spacing: 14) {
+            Avatar(name: nudge.fromUser.name, size: 48, glow: nudge.status != "acted")
+                .padding(6)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(nudge.fromUser.name) could use you")
+                    .font(Theme.bodyStrong())
+                    .foregroundStyle(Theme.ink)
+                Text(nudge.message)
+                    .font(Theme.small())
+                    .foregroundStyle(Theme.ink2)
+                    .lineLimit(2)
+                HStack(spacing: 8) {
+                    Text(DateText.ago(nudge.createdAt)).font(Theme.small(12)).foregroundStyle(Theme.ink3)
+                    if nudge.status == "acted" {
+                        Pill(text: "You helped", tone: .sage, systemImage: "checkmark")
+                    }
                 }
             }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.ink3)
         }
-        .padding(.vertical, 4)
+        .card(padding: 14)
     }
 }
 
@@ -86,26 +108,43 @@ struct SuggestionsView: View {
         nudge.status == "acted" || sent != nil
     }
 
+    private var framing: String {
+        if suggestions.contains(where: { $0.gestureType == .hangout }) {
+            return "You both have a little free time soon, so a short break together could help."
+        }
+        if suggestions.contains(where: { $0.gestureType == .dropOff }) {
+            return "You two don't have free time together soon, so something small fits best."
+        }
+        return "A few words from you would mean a lot."
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 12) {
-                    Avatar(name: nudge.fromUser.name, size: 52)
+                HStack(spacing: 16) {
+                    Avatar(name: nudge.fromUser.name, size: 58, glow: true)
+                        .padding(12)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(nudge.fromUser.name) could use you").font(.title3.weight(.bold))
-                        Text(nudge.message).foregroundStyle(.secondary)
+                        Eyebrow(text: "A nudge from \(nudge.fromUser.name)'s twin", color: Theme.ember)
+                        Text("\(nudge.fromUser.name) could use you")
+                            .font(Theme.heading(24))
+                            .foregroundStyle(Theme.ink)
                     }
                 }
-                .card()
+
+                Text("\(nudge.message) \(loading ? "" : framing)")
+                    .font(Theme.body(16))
+                    .lineSpacing(2)
+                    .foregroundStyle(Theme.ink)
 
                 if let sent {
                     sentCard(sent)
                 }
 
-                Text("Ways to help").font(.headline)
+                Eyebrow(text: "Ways to help")
 
                 if loading {
-                    ProgressView().frame(maxWidth: .infinity)
+                    ProgressView().tint(Theme.ember).frame(maxWidth: .infinity).padding()
                 }
 
                 ForEach(Array(suggestions.enumerated()), id: \.offset) { index, suggestion in
@@ -114,59 +153,66 @@ struct SuggestionsView: View {
 
                 ErrorText(message: error)
             }
-            .padding()
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
         }
-        .background(Color(.systemGroupedBackground))
-        .navigationTitle("Help \(nudge.fromUser.name)")
+        .screenBackground()
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .task { await load() }
     }
 
     private func suggestionCard(_ suggestion: Suggestion, index: Int) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let primary = index == 0
+        return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: suggestion.gestureType.symbol)
-                    .font(.title2)
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 32)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(suggestion.title).font(.headline)
-                    Text(suggestion.detail).font(.subheadline).foregroundStyle(.secondary)
+                IconBadge(systemImage: symbol(for: suggestion.gestureType))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(suggestion.title).font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
+                    Text(suggestion.detail).font(Theme.small()).foregroundStyle(Theme.ink2)
                 }
             }
             if let place = suggestion.place {
                 PlaceDetails(place: place)
-                    .padding(.leading, 44)
             }
             Button {
                 Task { await send(index) }
             } label: {
-                HStack {
+                HStack(spacing: 8) {
                     if sendingIndex == index {
-                        ProgressView()
+                        ProgressView().tint(primary ? .white : Theme.emberDeep)
                     }
-                    Text("Do this")
+                    Text(suggestion.gestureType == .message ? "Write it" : "Do this")
                 }
-                .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
+            .modifier(SuggestionButtonStyle(primary: primary))
             .disabled(alreadyActed || sendingIndex != nil)
+            .opacity(alreadyActed ? 0.5 : 1)
         }
         .card()
     }
 
     private func sentCard(_ gesture: Gesture) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label("Done", systemImage: "checkmark.seal.fill")
-                .font(.headline)
-                .foregroundStyle(.green)
-            Text("\(nudge.fromUser.name) will get a surprise note:")
-                .font(.subheadline)
-            Text("\"\(gesture.note)\"")
-                .font(.subheadline.italic())
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Done. \(nudge.fromUser.name) gets a surprise.", systemImage: "checkmark.seal.fill")
+                .font(Theme.bodyStrong(15))
+                .foregroundStyle(Theme.sageInk)
+            Text("\u{201C}\(gesture.note)\u{201D}")
+                .font(Theme.quote(17))
+                .foregroundStyle(Theme.ink2)
         }
-        .card()
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.sageLight, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .transition(.scale(scale: 0.95).combined(with: .opacity))
+    }
+
+    private func symbol(for type: GestureType) -> String {
+        switch type {
+        case .dropOff: return "cup.and.saucer"
+        case .hangout: return "figure.walk"
+        case .message: return "bubble.left"
+        }
     }
 
     private func load() async {
@@ -185,11 +231,23 @@ struct SuggestionsView: View {
         defer { sendingIndex = nil }
         do {
             let gesture = try await state.api.sendGesture(nudgeId: nudge.id, suggestionIndex: index)
-            withAnimation { sent = gesture }
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) { sent = gesture }
             error = nil
             await state.poll()
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+}
+
+private struct SuggestionButtonStyle: ViewModifier {
+    let primary: Bool
+
+    func body(content: Content) -> some View {
+        if primary {
+            content.buttonStyle(PrimaryButtonStyle(height: 46))
+        } else {
+            content.buttonStyle(SoftButtonStyle(height: 46))
         }
     }
 }

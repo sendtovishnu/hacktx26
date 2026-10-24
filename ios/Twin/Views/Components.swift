@@ -1,26 +1,27 @@
 import SwiftUI
 
-// Small shared pieces used across tabs.
+// Shared pieces used across tabs. Visual tokens live in Theme.swift.
 
 struct Avatar: View {
     let name: String
-    var size: CGFloat = 40
-
-    private var color: Color {
-        let palette: [Color] = [.orange, .pink, .purple, .teal, .indigo, .mint, .blue]
-        let sum = name.unicodeScalars.reduce(0) { $0 + Int($1.value) }
-        return palette[sum % palette.count]
-    }
+    var size: CGFloat = 44
+    var glow = false
 
     var body: some View {
         Circle()
-            .fill(color.gradient)
+            .fill(LinearGradient(colors: Theme.avatarColors(for: name), startPoint: .topLeading, endPoint: .bottomTrailing))
             .frame(width: size, height: size)
             .overlay(
                 Text(String(name.prefix(1)))
-                    .font(.system(size: size * 0.45, weight: .bold, design: .rounded))
+                    .font(.custom(Theme.Typeface.serif, size: size * 0.42))
                     .foregroundStyle(.white)
             )
+            .background {
+                if glow {
+                    Circle().fill(Theme.glow).frame(width: size + 24, height: size + 24)
+                    Circle().fill(Theme.blush).frame(width: size + 12, height: size + 12)
+                }
+            }
     }
 }
 
@@ -43,28 +44,30 @@ struct UserPicker: View {
                 }
             }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 Avatar(name: state.me?.name ?? "?", size: 28)
                 Text(state.me?.name ?? "Pick user")
-                    .font(.subheadline.weight(.semibold))
+                    .font(Theme.semibold(15))
+                    .foregroundStyle(Theme.ink)
             }
+            .padding(.leading, 4)
+            .padding(.trailing, 10)
+            .padding(.vertical, 4)
+            .background(Color.white, in: Capsule())
+            .shadow(color: Theme.ink.opacity(0.08), radius: 6, y: 2)
         }
     }
 }
 
 extension View {
-    /// Adds the demo user switcher to the navigation bar.
+    /// Adds the demo user switcher and hides the system title so screens can use ScreenHeader.
     func withUserPicker() -> some View {
-        toolbar {
-            ToolbarItem(placement: .topBarTrailing) { UserPicker() }
-        }
-    }
-
-    func card() -> some View {
-        padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+        self
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { UserPicker() }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
     }
 }
 
@@ -74,8 +77,8 @@ struct ErrorText: View {
     var body: some View {
         if let message {
             Label(message, systemImage: "exclamationmark.triangle.fill")
-                .font(.footnote)
-                .foregroundStyle(.red)
+                .font(Theme.small())
+                .foregroundStyle(Theme.emberDeep)
         }
     }
 }
@@ -84,31 +87,40 @@ struct PlaceDetails: View {
     let place: Place
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Image(systemName: "mappin.and.ellipse")
-                Text(place.name).font(.subheadline.weight(.semibold))
-                if let rating = place.rating {
-                    Label(String(format: "%.1f", rating), systemImage: "star.fill")
-                        .labelStyle(.titleAndIcon)
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+        HStack(spacing: 10) {
+            Image(systemName: "mappin.and.ellipse")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.ember)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(place.name)
+                    .font(Theme.bodyStrong(14))
+                    .foregroundStyle(Theme.ink)
+                HStack(spacing: 4) {
+                    Text(place.address).lineLimit(1)
+                    if let rating = place.rating {
+                        Text("· \(String(format: "%.1f", rating)) stars")
+                    }
                 }
-                if place.openNow == true {
-                    Text("Open now")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.green)
-                }
+                .font(Theme.small(12))
+                .foregroundStyle(Theme.ink2)
             }
-            Text(place.address)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Spacer(minLength: 4)
+            if place.openNow == true {
+                Pill(text: "Open now", tone: .sage)
+            }
             if let link = place.mapsLink {
                 Link(destination: link) {
-                    Label("Open in Maps", systemImage: "map")
-                        .font(.caption.weight(.semibold))
+                    Image(systemName: "map.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.ember)
+                        .frame(width: 32, height: 32)
+                        .background(Theme.blush, in: Circle())
                 }
+                .accessibilityLabel("Open in Maps")
             }
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Theme.paper, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
