@@ -24,6 +24,8 @@ final class MockAPI: TwinAPI {
     private let mayaSignals: Signals?
     private let places: [Place]
     private var signalsByUser: [String: Signals] = [:]
+    /// Wording the person chose for what friends see. Applied to every later refresh.
+    private var summaryOverrides: [String: (closest: String, close: String)] = [:]
     private var nudgeList: [Nudge] = []
     private var suggestionsByNudge: [String: [Suggestion]] = [:]
     private var gestureList: [StoredGesture] = []
@@ -170,6 +172,24 @@ final class MockAPI: TwinAPI {
         return signalsByUser[currentUserId]
     }
 
+    func updateSummaries(closest: String, close: String) async throws -> Signals {
+        await delay()
+        let me = try currentUser()
+        guard var signals = signalsByUser[me.id] else {
+            throw APIError.notConfigured("Refresh your twin first.")
+        }
+        summaryOverrides[me.id] = (closest, close)
+        signals.summaryForClosest = closest
+        signals.summaryForClose = close
+        signalsByUser[me.id] = signals
+        // Nudges a friend hasn't acted on yet pick up the new wording too.
+        for index in nudgeList.indices where nudgeList[index].fromUser.id == me.id && nudgeList[index].status != "acted" {
+            let tier: Tier = nudgeList[index].contextLevel == "closest" ? .closest : .close
+            nudgeList[index].message = message(for: me, tier: tier, signals: signals)
+        }
+        return signals
+    }
+
     func nudges() async throws -> [Nudge] {
         nudgeList.filter { $0.toFriendId == currentUserId }
     }
@@ -243,6 +263,15 @@ final class MockAPI: TwinAPI {
     // MARK: Fake twin logic
 
     private func signalsFor(_ me: User, checkin: String?) -> Signals {
+        var signals = baseSignals(me, checkin: checkin)
+        if let custom = summaryOverrides[me.id] {
+            signals.summaryForClosest = custom.closest
+            signals.summaryForClose = custom.close
+        }
+        return signals
+    }
+
+    private func baseSignals(_ me: User, checkin: String?) -> Signals {
         if me.id == "u_maya", let mayaSignals {
             return mayaSignals
         }

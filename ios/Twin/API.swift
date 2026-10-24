@@ -17,6 +17,7 @@ protocol TwinAPI: AnyObject {
     func ingestICS(data: Data, filename: String) async throws -> IngestResult
     func refreshTwin(checkin: String?) async throws -> TwinRefreshResult
     func twin() async throws -> Signals?
+    func updateSummaries(closest: String, close: String) async throws -> Signals
     func nudges() async throws -> [Nudge]
     func suggestions(nudgeId: String) async throws -> [Suggestion]
     func sendGesture(nudgeId: String, suggestionIndex: Int) async throws -> Gesture
@@ -141,6 +142,14 @@ final class APIClient: TwinAPI {
     func twin() async throws -> Signals? {
         let state: TwinState = try await get("api/twin")
         return state.signals
+    }
+
+    func updateSummaries(closest: String, close: String) async throws -> Signals {
+        struct Body: Encodable { let summaryForClosest: String; let summaryForClose: String }
+        let state: TwinState = try await call("PATCH", "api/twin/summaries",
+                                              body: Body(summaryForClosest: closest, summaryForClose: close))
+        guard let signals = state.signals else { throw APIError.notConfigured("Refresh your twin first.") }
+        return signals
     }
 
     func nudges() async throws -> [Nudge] { try await get("api/nudges") }

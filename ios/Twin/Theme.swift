@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // Design tokens from the Figma file "Twin: App Design", now themeable:
 // a soft accent the user picks (Sky by default) and light or dark mode.
@@ -66,10 +67,29 @@ final class ThemeStore: ObservableObject {
         didSet { UserDefaults.standard.set(accent.rawValue, forKey: "accent") }
     }
     @Published var appearance: AppearanceMode {
-        didSet { UserDefaults.standard.set(appearance.rawValue, forKey: "appearance") }
+        didSet {
+            UserDefaults.standard.set(appearance.rawValue, forKey: "appearance")
+            applyAppearance()
+        }
     }
     /// Lets the Account sheet ask RootView to open Appearance.
     @Published var showAppearance = false
+
+    /// Sets light, dark or system on every window, so open sheets and settings switch too.
+    /// (SwiftUI's preferredColorScheme does not switch back to System once a sheet has been forced.)
+    func applyAppearance() {
+        let style: UIUserInterfaceStyle
+        switch appearance {
+        case .system: style = .unspecified
+        case .light: style = .light
+        case .dark: style = .dark
+        }
+        for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
+            for window in scene.windows {
+                window.overrideUserInterfaceStyle = style
+            }
+        }
+    }
 
     private init() {
         let d = UserDefaults.standard

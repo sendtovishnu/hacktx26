@@ -7,6 +7,14 @@ struct TwinView: View {
     @State private var nudgesSent: Int?
     @State private var refreshing = false
     @State private var error: String?
+    @State private var editingShare = false
+    @State private var closestDraft = ""
+    @State private var closeDraft = ""
+    @State private var savingShare = false
+    @FocusState private var focusedField: ShareField?
+
+    private enum ShareField { case closest, close }
+    private let shareLimit = 90
 
     private var weekday: String {
         Date().formatted(.dateTime.weekday(.wide))
@@ -115,12 +123,105 @@ struct TwinView: View {
 
     private func sharingCard(_ signals: Signals) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Eyebrow(text: "What friends would see")
-            shareRow(tier: "Closest", color: Theme.accentDeep, text: signals.summaryForClosest, textColor: Theme.ink)
-            shareRow(tier: "Close", color: Theme.ink2, text: signals.summaryForClose, textColor: Theme.ink)
-            shareRow(tier: "Friend", color: Theme.ink3, text: "Nothing", textColor: Theme.ink3)
+            HStack {
+                Eyebrow(text: "What friends would see")
+                Spacer()
+                if !editingShare {
+                    Button {
+                        closestDraft = signals.summaryForClosest
+                        closeDraft = signals.summaryForClose
+                        withAnimation(.snappy) { editingShare = true }
+                        focusedField = .closest
+                    } label: {
+                        Label("Edit", systemImage: "pencil")
+                            .font(Theme.semibold(13))
+                            .foregroundStyle(Theme.accentDeep)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if editingShare {
+                shareEditor(tier: "Closest", color: Theme.accentDeep, text: $closestDraft, field: .closest,
+                            hint: "A short line about your week")
+                shareEditor(tier: "Close", color: Theme.ink2, text: $closeDraft, field: .close,
+                            hint: "Something general, no details")
+                shareRow(tier: "Friend", color: Theme.ink3, text: "Nothing", textColor: Theme.ink3)
+                Text("Your twin will use your words from now on. Friends never see your calendar or email.")
+                    .font(Theme.small(12))
+                    .foregroundStyle(Theme.ink3)
+                HStack(spacing: 10) {
+                    Button("Cancel") {
+                        withAnimation(.snappy) { editingShare = false }
+                        focusedField = nil
+                    }
+                    .buttonStyle(SoftButtonStyle(height: 44))
+                    Button {
+                        Task { await saveShare() }
+                    } label: {
+                        HStack(spacing: 6) {
+                            if savingShare { ProgressView().tint(Theme.onAccent) }
+                            Text("Save")
+                        }
+                    }
+                    .buttonStyle(PrimaryButtonStyle(height: 44))
+                    .disabled(savingShare || !draftsValid)
+                    .opacity(draftsValid ? 1 : 0.5)
+                }
+            } else {
+                shareRow(tier: "Closest", color: Theme.accentDeep, text: signals.summaryForClosest, textColor: Theme.ink)
+                shareRow(tier: "Close", color: Theme.ink2, text: signals.summaryForClose, textColor: Theme.ink)
+                shareRow(tier: "Friend", color: Theme.ink3, text: "Nothing", textColor: Theme.ink3)
+            }
         }
         .card()
+    }
+
+    private var draftsValid: Bool {
+        let a = closestDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let b = closeDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !a.isEmpty && !b.isEmpty && a.count <= shareLimit && b.count <= shareLimit
+    }
+
+    private func shareEditor(tier: String, color: Color, text: Binding<String>, field: ShareField, hint: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(tier).font(Theme.bodyStrong(13)).foregroundStyle(color)
+                Spacer()
+                Text("\(text.wrappedValue.count)/\(shareLimit)")
+                    .font(Theme.small(11))
+                    .foregroundStyle(text.wrappedValue.count > shareLimit ? Theme.accentDeep : Theme.ink3)
+            }
+            TextField(hint, text: text, axis: .vertical)
+                .font(Theme.body(15))
+                .lineLimit(1...3)
+                .focused($focusedField, equals: field)
+                .padding(12)
+                .background(Theme.paper, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(focusedField == field ? Theme.accent.opacity(0.6) : Theme.linen, lineWidth: 1.2)
+                )
+        }
+    }
+
+    private func saveShare() async {
+        savingShare = true
+        defer { savingShare = false }
+        do {
+            let updated = try await state.api.updateSummaries(
+                closest: closestDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+                close: closeDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            withAnimation(.snappy) {
+                signals = updated
+                editingShare = false
+            }
+            focusedField = nil
+            error = nil
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 
     private func shareRow(tier: String, color: Color, text: String, textColor: Color) -> some View {

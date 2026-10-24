@@ -58,7 +58,7 @@ struct RootView: View {
         .tint(Theme.accent)
         // Accent colors are read when views draw, so redraw everything when the accent changes.
         .id(theme.accent)
-        .preferredColorScheme(theme.appearance.colorScheme)
+        .onAppear { theme.applyAppearance() }
         .fullScreenCover(item: $state.activeSurprise) { gesture in
             SurpriseView(gesture: gesture)
         }
@@ -66,7 +66,6 @@ struct RootView: View {
             AppearanceView()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
-                .preferredColorScheme(theme.appearance.colorScheme)
         }
     }
 
