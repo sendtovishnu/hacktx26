@@ -18,7 +18,12 @@ let pool: pg.Pool | null = null;
 
 export function getPool(): pg.Pool {
   if (!pool) {
-    pool = new Pool({ connectionString: requireDatabaseUrl() });
+    // Managed Postgres (Tiger) often presents a chain Cursor/cloud egress
+    // rewrites; rejectUnauthorized:false keeps demos working without shipping CA bundles.
+    pool = new Pool({
+      connectionString: requireDatabaseUrl(),
+      ssl: { rejectUnauthorized: false },
+    });
   }
   return pool;
 }
