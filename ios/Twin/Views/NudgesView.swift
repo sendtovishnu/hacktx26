@@ -103,19 +103,20 @@ struct SuggestionsView: View {
     @State private var sendingIndex: Int?
     @State private var sent: Gesture?
     @State private var error: String?
+    @State private var noteDraft = ""
+    @State private var noteEdited = false
 
-    private var alreadyActed: Bool {
-        nudge.status == "acted" || sent != nil
+    /// The latest copy from polling, so the moment from this friend's twin appears when it's ready.
+    private var live: Nudge {
+        state.nudges.first { $0.id == nudge.id } ?? nudge
     }
 
-    private var framing: String {
-        if suggestions.contains(where: { $0.gestureType == .hangout }) {
-            return "You both have a little free time soon, so a short break together could help."
-        }
-        if suggestions.contains(where: { $0.gestureType == .dropOff }) {
-            return "You two don't have free time together soon, so something small fits best."
-        }
-        return "A few words from you would mean a lot."
+    private var alreadyActed: Bool {
+        live.status == "acted" || sent != nil
+    }
+
+    private var firstName: String {
+        nudge.fromUser.name.split(separator: " ").first.map(String.init) ?? nudge.fromUser.name
     }
 
     var body: some View {
@@ -132,13 +133,17 @@ struct SuggestionsView: View {
                     }
                 }
 
-                Text("\(nudge.message) \(loading ? "" : framing)")
+                // The twin's message already explains the free-time situation.
+                Text(nudge.message)
                     .font(Theme.body(16))
                     .lineSpacing(2)
                     .foregroundStyle(Theme.ink)
 
                 if let sent {
                     sentCard(sent)
+                } else if !alreadyActed {
+                    momentCard
+                    noteCard
                 }
 
                 Eyebrow(text: "Ways to help")
@@ -160,6 +165,52 @@ struct SuggestionsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .task { await load() }
+        .onAppear { if !noteEdited { noteDraft = live.draftNote ?? "" } }
+        .onChange(of: live.draftNote) { _, draft in
+            if !noteEdited { noteDraft = draft ?? "" }
+        }
+    }
+
+    /// Twin to twin: your own twin read your calendar and found when you can show up.
+    private var momentCard: some View {
+        HStack(alignment: .top, spacing: 12) {
+            IconBadge(systemImage: "clock.badge.checkmark")
+            VStack(alignment: .leading, spacing: 4) {
+                Eyebrow(text: "Your twin found a moment", color: Theme.accent)
+                if let moment = live.moment {
+                    Text(moment).font(Theme.body(15)).foregroundStyle(Theme.ink)
+                        .transition(.opacity)
+                } else {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small).tint(Theme.accent)
+                        Text("Checking your calendar against \(firstName)'s free time\u{2026}")
+                            .font(Theme.small()).foregroundStyle(Theme.ink2)
+                    }
+                }
+                Text("Your twin sees your calendar. It only knows when \(firstName) is busy, never why.")
+                    .font(Theme.small(11)).foregroundStyle(Theme.ink3)
+            }
+        }
+        .card()
+        .animation(.easeInOut, value: live.moment)
+    }
+
+    /// The note goes out in your words: the twin only drafts it.
+    private var noteCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Eyebrow(text: "Your note to \(firstName)")
+            TextField("Write something in your own words", text: $noteDraft, axis: .vertical)
+                .lineLimit(2...5)
+                .font(Theme.body(15))
+                .padding(12)
+                .background(Theme.cream, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .onChange(of: noteDraft) { _, text in
+                    if text != (live.draftNote ?? "") { noteEdited = true }
+                }
+            Label("Suggested by \(firstName)'s twin. Make it yours: it's sent from you.", systemImage: "sparkles")
+                .font(Theme.small(12)).foregroundStyle(Theme.ink3)
+        }
+        .card()
     }
 
     private func suggestionCard(_ suggestion: Suggestion, index: Int) -> some View {
@@ -230,7 +281,8 @@ struct SuggestionsView: View {
         sendingIndex = index
         defer { sendingIndex = nil }
         do {
-            let gesture = try await state.api.sendGesture(nudgeId: nudge.id, suggestionIndex: index)
+            let note = noteDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+            let gesture = try await state.api.sendGesture(nudgeId: nudge.id, suggestionIndex: index, note: note.isEmpty ? nil : note)
             withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) { sent = gesture }
             error = nil
             await state.poll()

@@ -220,7 +220,7 @@ final class MockAPI: TwinAPI {
         return suggestionsByNudge[nudgeId] ?? []
     }
 
-    func sendGesture(nudgeId: String, suggestionIndex: Int) async throws -> Gesture {
+    func sendGesture(nudgeId: String, suggestionIndex: Int, note customNote: String?) async throws -> Gesture {
         await delay()
         let me = try currentUser()
         guard let nudgeIndex = nudgeList.firstIndex(where: { $0.id == nudgeId }) else {
@@ -240,7 +240,7 @@ final class MockAPI: TwinAPI {
             fromFriend: me,
             type: choice.gestureType,
             place: choice.place,
-            note: note(for: choice, helped: helped),
+            note: customNote ?? note(for: choice, helped: helped),
             deliveredAt: DateText.now()
         )
         gestureList.append(StoredGesture(gesture: gesture, helpedUserId: helped.id))

@@ -63,11 +63,13 @@ function jayBusyBlocksOn(day: string): MockEvent[] {
       end: t(12, 0),
       location: 'EER 0.822',
     },
+    // Ends 12:40 with standup at 1: a 20-minute gap a short walk from PCL. Too short
+    // to hang out (keeps the drop-off), long enough for Jay's twin to find a moment.
     {
       title: 'Study group lunch',
       start: t(12, 0),
-      end: t(13, 0),
-      location: 'Jester Dining',
+      end: t(12, 40),
+      location: 'Jester Dining (next to PCL)',
     },
     {
       title: 'Internship standup + coding block',

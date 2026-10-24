@@ -146,7 +146,7 @@ struct TwinView: View {
             if editingShare {
                 shareEditor(tier: .closest, text: $closestDraft, field: .closest, hint: "A short line about your week")
                 shareEditor(tier: .close, text: $closeDraft, field: .close, hint: "Something general, no details")
-                shareEditor(tier: .friend, text: $friendDraft, field: .friend, hint: "Very light, like \u{201C}busy week\u{201D}")
+                friendNothingRow
                 Text("Your twin writes these from your week, and keeps your words once you edit them. Friends never see your calendar or email.")
                     .font(Theme.small(12))
                     .foregroundStyle(Theme.ink3)
@@ -180,7 +180,7 @@ struct TwinView: View {
             } else {
                 shareRow(tier: .closest, text: signals.summaryForClosest, signals: signals)
                 shareRow(tier: .close, text: signals.summaryForClose, signals: signals)
-                shareRow(tier: .friend, text: signals.friendLine, signals: signals)
+                friendNothingRow
             }
         }
         .card()
@@ -215,8 +215,16 @@ struct TwinView: View {
         }
     }
 
+    /// The server never nudges the Friend circle, so say so instead of showing a line they never get.
+    private var friendNothingRow: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(Tier.friend.label).font(Theme.bodyStrong(13)).foregroundStyle(tierColor(.friend)).frame(width: 104, alignment: .leading)
+            Text("Hears nothing about your week").font(Theme.body(14)).italic().foregroundStyle(Theme.ink3)
+        }
+    }
+
     private var draftsValid: Bool {
-        [closestDraft, closeDraft, friendDraft].allSatisfy { draft in
+        [closestDraft, closeDraft].allSatisfy { draft in
             let t = draft.trimmingCharacters(in: .whitespacesAndNewlines)
             return !t.isEmpty && t.count <= shareLimit
         }

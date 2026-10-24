@@ -1,5 +1,6 @@
 export { filterEmails, extractSignals } from './extract.js';
 export { decideNudges } from './twin.js';
+export { planMoment } from './moment.js';
 
 // Kept from Person A's scaffold stub.
 import { getEmailsFor, getEventsFor } from '../mocks.js';

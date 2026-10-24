@@ -1,4 +1,5 @@
 -- Idempotent reset: drop dependents first via CASCADE.
+DROP TABLE IF EXISTS summary_overrides CASCADE;
 DROP TABLE IF EXISTS gestures CASCADE;
 DROP TABLE IF EXISTS nudges CASCADE;
 DROP TABLE IF EXISTS signals CASCADE;
@@ -85,7 +86,18 @@ CREATE TABLE nudges (
   status TEXT NOT NULL CHECK (status IN ('sent', 'seen', 'acted')),
   -- Muse's starter surprise note; the friend can edit it before sending.
   draft_note TEXT,
+  -- Why the twin nudged, for the sender's privacy log.
+  reason TEXT,
+  -- When and where the friend's twin found they can show up.
+  moment TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- The person's own wording for what each tier hears; survives twin refreshes.
+CREATE TABLE summary_overrides (
+  user_id TEXT PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+  summary_for_closest TEXT NOT NULL,
+  summary_for_close TEXT NOT NULL
 );
 
 CREATE INDEX nudges_to_friend_idx ON nudges (to_friend_id, created_at DESC);

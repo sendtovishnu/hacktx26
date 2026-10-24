@@ -77,7 +77,8 @@ struct PrivacyView: View {
                                     Text("Your twin shared: \u{201C}\(nudge.message)\u{201D}")
                                         .font(Theme.small(12))
                                         .foregroundStyle(Theme.ink2)
-                                    Text("Because you could use support and they're your \((Tier(rawValue: nudge.contextLevel) ?? .friend).label.lowercased())")
+                                    // Muse's own explanation when it gave one.
+                                    Text(nudge.reason ?? "Because you could use support and they're your \((Tier(rawValue: nudge.contextLevel) ?? .friend).label.lowercased())")
                                         .font(Theme.small(11))
                                         .foregroundStyle(Theme.ink3)
                                 }

@@ -17,13 +17,18 @@ export interface Signals {
   summaryForClosest: string;
   summaryForClose: string;
 }
-export interface TwinFriendInput { friend: User; tier: Tier; sharedFreeMinutes: number }
-export interface TwinDecision { friendId: string; message: string; gestureType: GestureType; surpriseNote: string }
+// showedUpForThem: what the user recently did for this friend, e.g. "an oat latte drop-off" (pay it forward).
+export interface TwinFriendInput { friend: User; tier: Tier; sharedFreeMinutes: number; showedUpForThem?: string }
+// reason: one sentence for the user's privacy log on why this friend was nudged.
+export interface TwinDecision { friendId: string; message: string; gestureType: GestureType; surpriseNote: string; reason?: string }
 export interface Place { name: string; address: string; rating?: number; openNow?: boolean; mapsUrl?: string }
 export interface Suggestion { gestureType: GestureType; title: string; detail: string; place?: Place }
 export interface Nudge {
   id: string; fromUser: User; toFriendId: string; message: string;
   contextLevel: 'closest' | 'close'; status: 'sent' | 'seen' | 'acted';
   createdAt: string;
+  // Muse's starter note the friend edits; when and where the friend's twin says they can show up;
+  // why the twin nudged (shown to the sender only, in the privacy log).
+  draftNote?: string; moment?: string; reason?: string;
 }
 export interface Gesture { id: string; nudgeId: string; fromFriend: User; type: GestureType; place?: Place; note: string; deliveredAt: string }

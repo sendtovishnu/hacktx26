@@ -124,6 +124,12 @@ struct Nudge: Codable, Identifiable, Hashable {
     var contextLevel: String // "closest", "close" or "friend"
     var status: String // "sent", "seen" or "acted"
     var createdAt: String
+    /// Muse's starter note, which the friend edits before sending.
+    var draftNote: String?
+    /// When and where the friend's own twin found they can show up. Arrives a few seconds after the nudge.
+    var moment: String?
+    /// Why the twin nudged; only in the sender's privacy log.
+    var reason: String?
 }
 
 struct Gesture: Codable, Identifiable, Hashable {

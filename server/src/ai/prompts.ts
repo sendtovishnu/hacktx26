@@ -40,6 +40,7 @@ export function twinPrompt(user: User, signals: Signals, friends: TwinFriendInpu
     tier: f.tier,
     shared_free_minutes: f.sharedFreeMinutes,
     may_hear: f.tier === 'closest' ? signals.summaryForClosest : signals.summaryForClose,
+    ...(f.showedUpForThem ? { you_showed_up_for_them: f.showedUpForThem } : {}),
   }));
 
   return `You are ${name}'s digital twin. Decide whether any friends should be nudged to support ${name}.
@@ -54,6 +55,7 @@ Return [] if no one should be nudged.
 "message" is what the friend reads: 1-2 warm sentences suggesting how to help.
 "surprise_note" is a starter draft the friend will edit and send to ${name} in their own words. Write it as that friend texting a close friend: 1-2 short, casual sentences, no signature, no greeting card language. It arrives together with the gesture (for a drop-off, alongside the coffee), so it never asks permission or asks a question. Example: "figured you'd be living at PCL rn, oat latte for the grind. you've got tuesday"
 "reason" is for ${name}'s privacy log, read later by ${name}: one plain sentence addressed to them as "you" saying why you chose this friend and this gesture, and what they were told. Example: "Told Jay (your closest friend) that you have a midterm Tuesday and a packed week; suggested a coffee drop-off since you two have no free time together."
+If a friend has "you_showed_up_for_them", ${name} recently did that for them. Mention it once, lightly, in their message so it feels like their turn to return the favor (e.g. "${name} brought you a latte before your midterm; now it's their rough week"). Never make it sound like a debt. Prefer these friends when deciding whom to nudge.
 If shared_free_minutes is 30 or more, prefer "hangout"; otherwise prefer "drop_off".
 Use ${name}'s preferences (${prefs}) to make it personal, naturally: name the drink, but never recite the preferences themselves.
 Describe situations, never diagnose mental health.

@@ -506,6 +506,9 @@ type NudgeRow = {
   context_level: 'closest' | 'close';
   status: 'sent' | 'seen' | 'acted';
   created_at: Date | string;
+  draft_note?: string | null;
+  reason?: string | null;
+  moment?: string | null;
 };
 
 export type DbNudge = {
@@ -516,6 +519,9 @@ export type DbNudge = {
   contextLevel: 'closest' | 'close';
   status: 'sent' | 'seen' | 'acted';
   createdAt: string;
+  draftNote?: string;
+  reason?: string;
+  moment?: string;
 };
 
 function mapNudgeRow(row: NudgeRow): DbNudge {
@@ -527,6 +533,9 @@ function mapNudgeRow(row: NudgeRow): DbNudge {
     contextLevel: row.context_level,
     status: row.status,
     createdAt: toIso(row.created_at),
+    draftNote: row.draft_note ?? undefined,
+    reason: row.reason ?? undefined,
+    moment: row.moment ?? undefined,
   };
 }
 
@@ -541,14 +550,25 @@ async function hydrateNudge(row: DbNudge): Promise<Nudge | null> {
     contextLevel: row.contextLevel,
     status: row.status,
     createdAt: row.createdAt,
+    draftNote: row.draftNote,
+    reason: row.reason,
+    moment: row.moment,
   };
 }
 
-// Databases created before draft_note existed get the column on first use, no reset needed.
-let draftNoteColumnReady: Promise<unknown> | null = null;
-function ensureDraftNoteColumn(): Promise<unknown> {
-  draftNoteColumnReady ??= query(`ALTER TABLE nudges ADD COLUMN IF NOT EXISTS draft_note TEXT`);
-  return draftNoteColumnReady;
+// Databases created before these existed get them on first use, so no reset is needed.
+let twinExtrasReady: Promise<unknown> | null = null;
+export function ensureTwinExtras(): Promise<unknown> {
+  twinExtrasReady ??= query(`
+    ALTER TABLE nudges ADD COLUMN IF NOT EXISTS draft_note TEXT;
+    ALTER TABLE nudges ADD COLUMN IF NOT EXISTS reason TEXT;
+    ALTER TABLE nudges ADD COLUMN IF NOT EXISTS moment TEXT;
+    CREATE TABLE IF NOT EXISTS summary_overrides (
+      user_id TEXT PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+      summary_for_closest TEXT NOT NULL,
+      summary_for_close TEXT NOT NULL
+    );`);
+  return twinExtrasReady;
 }
 
 export async function insertNudge(input: {
@@ -559,16 +579,18 @@ export async function insertNudge(input: {
   contextLevel: 'closest' | 'close';
   status?: 'sent' | 'seen' | 'acted';
   draftNote?: string;
+  reason?: string;
 }): Promise<void> {
-  await ensureDraftNoteColumn();
+  await ensureTwinExtras();
   await query(
-    `INSERT INTO nudges (id, from_user_id, to_friend_id, message, context_level, status, draft_note)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO nudges (id, from_user_id, to_friend_id, message, context_level, status, draft_note, reason)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (id) DO UPDATE SET
        message = EXCLUDED.message,
        context_level = EXCLUDED.context_level,
        status = EXCLUDED.status,
-       draft_note = EXCLUDED.draft_note`,
+       draft_note = EXCLUDED.draft_note,
+       reason = EXCLUDED.reason`,
     [
       input.id,
       input.fromUserId,
@@ -577,18 +599,71 @@ export async function insertNudge(input: {
       input.contextLevel,
       input.status ?? 'sent',
       input.draftNote ?? null,
+      input.reason ?? null,
     ],
   );
 }
 
 /** Muse's starter surprise note for a nudge, if the twin wrote one. */
 export async function getNudgeDraftNote(id: string): Promise<string | null> {
-  await ensureDraftNoteColumn();
+  await ensureTwinExtras();
   const { rows } = await query<{ draft_note: string | null }>(
     `SELECT draft_note FROM nudges WHERE id = $1`,
     [id],
   );
   return rows[0]?.draft_note ?? null;
+}
+
+/** Saves the moment the friend's twin found for showing up. */
+export async function setNudgeMoment(id: string, moment: string): Promise<void> {
+  await ensureTwinExtras();
+  await query(`UPDATE nudges SET moment = $2 WHERE id = $1`, [id, moment]);
+}
+
+/** The person's own wording for what each tier hears; survives twin refreshes. */
+export async function getSummaryOverride(
+  userId: string,
+): Promise<{ summaryForClosest: string; summaryForClose: string } | null> {
+  await ensureTwinExtras();
+  const { rows } = await query<{ summary_for_closest: string; summary_for_close: string }>(
+    `SELECT summary_for_closest, summary_for_close FROM summary_overrides WHERE user_id = $1`,
+    [userId],
+  );
+  const row = rows[0];
+  return row ? { summaryForClosest: row.summary_for_closest, summaryForClose: row.summary_for_close } : null;
+}
+
+export async function setSummaryOverride(userId: string, closest: string, close: string): Promise<void> {
+  await ensureTwinExtras();
+  await query(
+    `INSERT INTO summary_overrides (user_id, summary_for_closest, summary_for_close)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (user_id) DO UPDATE SET
+       summary_for_closest = EXCLUDED.summary_for_closest,
+       summary_for_close = EXCLUDED.summary_for_close`,
+    [userId, closest, close],
+  );
+}
+
+export async function deleteSummaryOverride(userId: string): Promise<void> {
+  await ensureTwinExtras();
+  await query(`DELETE FROM summary_overrides WHERE user_id = $1`, [userId]);
+}
+
+/** Gestures `fromUserId` gave `toUserId` in the last two weeks, newest first. */
+export async function recentGesturesBetween(
+  fromUserId: string,
+  toUserId: string,
+): Promise<{ type: string; placeName: string | null; deliveredAt: string }[]> {
+  const { rows } = await query<{ type: string; place_name: string | null; delivered_at: Date | string }>(
+    `SELECT g.type, g.place_name, g.delivered_at
+     FROM gestures g JOIN nudges n ON n.id = g.nudge_id
+     WHERE g.from_friend_id = $1 AND n.from_user_id = $2
+       AND g.delivered_at > now() - interval '14 days'
+     ORDER BY g.delivered_at DESC`,
+    [fromUserId, toUserId],
+  );
+  return rows.map((r) => ({ type: r.type, placeName: r.place_name, deliveredAt: toIso(r.delivered_at) }));
 }
 
 export async function updateNudgeStatus(
@@ -635,7 +710,8 @@ export async function listNudgesToUser(userId: string): Promise<Nudge[]> {
   const out: Nudge[] = [];
   for (const row of rows) {
     const nudge = await hydrateNudge(mapNudgeRow(row));
-    if (nudge) out.push(nudge);
+    // The reason is written for the sender's privacy log, not for the friend.
+    if (nudge) out.push({ ...nudge, reason: undefined });
   }
   return out;
 }
