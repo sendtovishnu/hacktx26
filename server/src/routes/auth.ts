@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { getUser, useDatabase } from '../db/index.js';
 import {
@@ -6,6 +6,7 @@ import {
   exchangeGoogleAuthWeb,
   getGoogleAuthUrl,
   googleStatus,
+  hasRealGoogleTokens,
   ingestGoogle,
   webRedirectUri,
 } from '../google/index.js';
@@ -15,6 +16,23 @@ import { requireDemoUser, type DemoRequest } from '../middleware.js';
 export const authRouter = Router();
 
 const DEMO_USER_IDS = ['u_maya', 'u_jay', 'u_priya'] as const;
+type DemoUserId = (typeof DEMO_USER_IDS)[number];
+
+function isDemoUserId(value: string): value is DemoUserId {
+  return (DEMO_USER_IDS as readonly string[]).includes(value);
+}
+
+function firstQuery(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value) && typeof value[0] === 'string') return value[0];
+  return '';
+}
+
+function readCookie(req: Request, name: string): string {
+  const raw = req.headers.cookie ?? '';
+  const match = raw.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : '';
+}
 
 authRouter.post('/auth/google/exchange', requireDemoUser, async (req, res) => {
   const user = (req as DemoRequest).demoUser;
@@ -38,8 +56,8 @@ authRouter.post('/auth/google/exchange', requireDemoUser, async (req, res) => {
 
 /** Start browser Google OAuth for a demo user. */
 authRouter.get('/auth/google/start', (req, res) => {
-  const userId = String(req.query.user ?? 'u_maya');
-  if (!DEMO_USER_IDS.includes(userId as (typeof DEMO_USER_IDS)[number])) {
+  const userId = firstQuery(req.query.user) || 'u_maya';
+  if (!isDemoUserId(userId)) {
     res.status(400).type('html').send(errorPage('Pick a demo user: u_maya, u_jay, or u_priya.'));
     return;
   }
@@ -55,6 +73,11 @@ authRouter.get('/auth/google/start', (req, res) => {
     return;
   }
   try {
+    // Cookie survives Google's redirect even if `state` is dropped.
+    res.setHeader(
+      'Set-Cookie',
+      `oauth_demo_user=${encodeURIComponent(userId)}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax; Secure`,
+    );
     res.redirect(getGoogleAuthUrl(userId));
   } catch (err) {
     res
@@ -69,22 +92,70 @@ authRouter.get('/auth/google/start', (req, res) => {
  * pulls calendar + Gmail, then shows a success page.
  */
 authRouter.get('/auth/google/callback', async (req, res) => {
-  const error = typeof req.query.error === 'string' ? req.query.error : '';
-  if (error) {
+  const qError = firstQuery(req.query.error);
+  const qErrorDesc = firstQuery(req.query.error_description);
+  if (qError) {
     res
       .status(400)
       .type('html')
-      .send(errorPage(`Google denied access: ${escapeHtml(error)}. ${escapeHtml(String(req.query.error_description ?? ''))}`));
+      .send(errorPage(`Google denied access: ${escapeHtml(qError)}. ${escapeHtml(qErrorDesc)}`));
     return;
   }
 
-  const code = typeof req.query.code === 'string' ? req.query.code : '';
-  const userId = typeof req.query.state === 'string' ? req.query.state : '';
-  if (!code || !DEMO_USER_IDS.includes(userId as (typeof DEMO_USER_IDS)[number])) {
-    res
-      .status(400)
-      .type('html')
-      .send(errorPage('Missing code or demo user state from Google. Start again from the home page.'));
+  const code = firstQuery(req.query.code);
+  const stateUser = firstQuery(req.query.state);
+  const cookieUser = readCookie(req, 'oauth_demo_user');
+  const userId = isDemoUserId(stateUser)
+    ? stateUser
+    : isDemoUserId(cookieUser)
+      ? cookieUser
+      : '';
+
+  console.log('[google/callback]', {
+    hasCode: Boolean(code),
+    state: stateUser || '(none)',
+    cookie: cookieUser || '(none)',
+    keys: Object.keys(req.query),
+    redirectUri: webRedirectUri(),
+  });
+
+  if (!code) {
+    // Refresh after a successful connect, or opening the callback URL cold.
+    if (userId && (await hasRealGoogleTokens(userId))) {
+      const user = useDatabase() ? await getUser(userId) : getMockUser(userId) ?? null;
+      if (user) {
+        res.type('html').send(
+          successPage({
+            name: user.name,
+            userId,
+            events: 0,
+            emails: 0,
+            source: 'google',
+            alreadyConnected: true,
+          }),
+        );
+        return;
+      }
+    }
+    res.status(400).type('html').send(
+      errorPage(
+        `Google came back without an auth code (query keys: <code>${escapeHtml(Object.keys(req.query).join(', ')) || '(none)'}</code>).
+         This usually means the redirect URI is wrong, or the page was refreshed after the one-time code was used.<br><br>
+         In Google Cloud → Web client → <strong>Authorized redirect URIs</strong>, add exactly:<br>
+         <code>${webRedirectUri()}</code><br><br>
+         Then start again from the <a href="/">home page</a> (don’t refresh this URL).`,
+      ),
+    );
+    return;
+  }
+
+  if (!userId) {
+    res.status(400).type('html').send(
+      errorPage(
+        `Got a Google code but no demo user (state=<code>${escapeHtml(stateUser) || '(empty)'}</code>, cookie=<code>${escapeHtml(cookieUser) || '(empty)'}</code>).
+         Start again from the <a href="/">home page</a> and use Connect as Maya / Jay / Priya.`,
+      ),
+    );
     return;
   }
 
@@ -97,6 +168,10 @@ authRouter.get('/auth/google/callback', async (req, res) => {
   try {
     await exchangeGoogleAuthWeb(userId, code);
     const ingest = await ingestGoogle(userId);
+    res.setHeader(
+      'Set-Cookie',
+      'oauth_demo_user=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure',
+    );
     res.type('html').send(
       successPage({
         name: user.name,
@@ -109,13 +184,13 @@ authRouter.get('/auth/google/callback', async (req, res) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Google connect failed';
     const hint = /redirect_uri/i.test(message)
-      ? ` Add this exact Authorized redirect URI on your Google Web client: <code>${webRedirectUri()}</code>`
+      ? `<br><br>Add this exact Authorized redirect URI on your Google Web client:<br><code>${webRedirectUri()}</code>`
       : '';
     res.status(400).type('html').send(errorPage(`${escapeHtml(message)}.${hint}`));
   }
 });
 
-/** Query strings and Google's error text go into HTML; escape them so a crafted link can't inject script. */
+/** Query strings, cookies and Google's error text go into HTML; escape them so a crafted link can't inject script. */
 function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
@@ -142,7 +217,7 @@ function errorPage(message: string): string {
     'Google connect failed',
     `<h1 class="bad">Could not connect Google</h1>
      <div class="card"><p>${message}</p>
-     <p><a href="/">Back home</a></p></div>`,
+     <p><a href="/">Back home</a> · <a href="/api/auth/google/start?user=u_maya">Try Maya again</a></p></div>`,
   );
 }
 
@@ -152,16 +227,19 @@ function successPage(opts: {
   events: number;
   emails: number;
   source: string;
+  alreadyConnected?: boolean;
 }): string {
+  const syncLine = opts.alreadyConnected
+    ? `<p>Google is already connected for this demo user. Open the iOS app and tap <strong>Refresh my twin</strong>.</p>`
+    : `<p>Synced <strong>${opts.events}</strong> calendar events and <strong>${opts.emails}</strong> emails
+          (source: <code>${opts.source}</code>).</p>`;
   return layout(
     'Google connected',
     `<h1 class="ok">Connected</h1>
      <div class="card">
        <p><strong>${opts.name}</strong> (<code>${opts.userId}</code>) is linked to Google.</p>
-       <p>Synced <strong>${opts.events}</strong> calendar events and <strong>${opts.emails}</strong> emails
-          (source: <code>${opts.source}</code>).</p>
-       <p>The iOS app can use this same account via <code>X-Demo-User: ${opts.userId}</code> —
-          tap Refresh my twin next.</p>
+       ${syncLine}
+       <p>The iOS app uses this via <code>X-Demo-User: ${opts.userId}</code>.</p>
        <p><a href="/">Connect another demo user</a></p>
      </div>`,
   );
