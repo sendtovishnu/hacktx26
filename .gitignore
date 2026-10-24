@@ -7,3 +7,9 @@ out/
 .DS_Store
 *.log
 .vercel
+
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcuserstate
+build/
