@@ -16,7 +16,7 @@ extension Tier {
         switch self {
         case .closest: return "Hears a short summary when you could use support"
         case .close: return "Hears a gentle heads-up, never details"
-        case .friend: return "Sees a light, general line, like \u{201C}busy week\u{201D}"
+        case .friend: return "Hears nothing about your week"
         }
     }
 

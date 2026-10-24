@@ -4,6 +4,7 @@ import {
   getNudge,
   listEvents,
   listNudgesToUser,
+  respectReaction,
   toCalendarEvents,
   toSignals,
   useDatabase,
@@ -30,7 +31,10 @@ async function resolveGestureType(nudgeFromId: string, nudgeToId: string): Promi
       toCalendarEvents(await listEvents(nudgeFromId)),
       toCalendarEvents(await listEvents(nudgeToId)),
     );
-    return { gestureType: gestureFor(signals, mins), signals };
+    return {
+      gestureType: await respectReaction(nudgeFromId, nudgeToId, gestureFor(signals, mins)),
+      signals,
+    };
   }
 
   const signals = getSignalsFor(nudgeFromId);

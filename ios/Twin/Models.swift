@@ -140,6 +140,8 @@ struct Gesture: Codable, Identifiable, Hashable {
     var place: Place?
     var note: String
     var deliveredAt: String
+    /// "helped" or "space": how the person said it landed. Their twin reads it next time.
+    var reaction: String?
 }
 
 // Response wrappers

@@ -1,8 +1,12 @@
 import type { CalendarEvent, EmailSnippet, Signals, TwinFriendInput, User } from '../types.js';
 
+// Models get weekdays wrong when they have to work them out from a date, so spell them out.
+const dayOf = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', { timeZone: 'America/Chicago', weekday: 'long' });
+
 export function extractionPrompt(events: CalendarEvent[], emails: EmailSnippet[], checkin?: string, now = new Date()) {
   return `You analyze one student's upcoming week to see whether they could use support from friends.
-Today is ${now.toISOString()}.
+Today is ${dayOf(now.toISOString())}, ${now.toISOString()}. Use the "day" given with each event; never work out weekdays yourself.
 
 Return JSON only:
 {
@@ -20,7 +24,7 @@ Ignore details about other people that are not about this student.
 summary_for_closest is under 12 words; summary_for_close is under 6 words and names no specifics.
 
 Calendar, next 7 days:
-${JSON.stringify(events)}
+${JSON.stringify(events.map((e) => ({ ...e, day: dayOf(e.start) })))}
 
 Recent emails (sender, subject, snippet):
 ${JSON.stringify(emails.map(({ from, subject, snippet }) => ({ from, subject, snippet })))}
@@ -41,6 +45,7 @@ export function twinPrompt(user: User, signals: Signals, friends: TwinFriendInpu
     shared_free_minutes: f.sharedFreeMinutes,
     may_hear: f.tier === 'closest' ? signals.summaryForClosest : signals.summaryForClose,
     ...(f.showedUpForThem ? { you_showed_up_for_them: f.showedUpForThem } : {}),
+    ...(f.lastReaction ? { last_time: f.lastReaction === 'space' ? 'said they needed space' : 'said it really helped' } : {}),
   }));
 
   return `You are ${name}'s digital twin. Decide whether any friends should be nudged to support ${name}.
@@ -57,6 +62,7 @@ Return [] if no one should be nudged.
 "reason" is for ${name}'s privacy log, read later by ${name}: one plain sentence addressed to them as "you" saying why you chose this friend and this gesture, and what they were told. Example: "Told Jay (your closest friend) that you have a midterm Tuesday and a packed week; suggested a coffee drop-off since you two have no free time together."
 If a friend has "you_showed_up_for_them", ${name} recently did that for them. Mention it once, lightly, in their message so it feels like their turn to return the favor (e.g. "${name} brought you a latte before your midterm; now it's their rough week"). Never make it sound like a debt. Prefer these friends when deciding whom to nudge.
 If shared_free_minutes is 30 or more, prefer "hangout"; otherwise prefer "drop_off".
+"last_time" is how ${name} reacted to this friend's last gesture; it is the most important thing you know about what ${name} wants. If ${name} "said they needed space", use "message": ask the friend to send a short note and not show up, the surprise_note must work as a text on its own, and the reason must say you chose a note because ${name} needed space last time. If ${name} "said it really helped", lean into the same kind of gesture and say so in the reason.
 Use ${name}'s preferences (${prefs}) to make it personal, naturally: name the drink, but never recite the preferences themselves.
 Describe situations, never diagnose mental health.
 

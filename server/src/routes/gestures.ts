@@ -8,6 +8,7 @@ import {
   getNudgeDraftNote,
   insertGesture,
   listEvents,
+  respectReaction,
   toCalendarEvents,
   toSignals,
   updateNudgeStatus,
@@ -62,8 +63,9 @@ gesturesRouter.post('/gestures', requireDemoUser, async (req, res) => {
             toCalendarEvents(await listEvents(nudge.toFriendId)),
           )
         : 0;
+      // Must match what GET /nudges/:id/suggestions offered, so the index points at the same choice.
       const gestureType: GestureType = signals
-        ? gestureFor(signals, mins)
+        ? await respectReaction(nudge.fromUser.id, user.id, gestureFor(signals, mins))
         : 'message';
       const near = nearLocation(signals, nudge.fromUser.homeLocation);
       const suggestions = await buildSuggestions({

@@ -4,9 +4,11 @@ import SwiftUI
 
 struct SurpriseView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var state: AppState
     let gesture: Gesture
     @State private var appeared = false
     @State private var pulse = false
+    @State private var reacted: String?
 
     var body: some View {
         ZStack {
@@ -63,16 +65,45 @@ struct SurpriseView: View {
 
                 Spacer()
 
-                Button {
-                    dismiss()
-                } label: {
-                    Text("Thank you, \(gesture.fromFriend.name)")
-                        .font(Theme.button())
-                        .foregroundStyle(Theme.accentDeep)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 54)
-                        .background(.white, in: Capsule())
+                // Your answer teaches your twin: "needed space" means a note, not a visit, next time.
+                VStack(spacing: 10) {
+                    if let reacted {
+                        Label(reacted == "space"
+                              ? "Got it. Next time your twin will ask for a note instead of a visit."
+                              : "Got it. Your twin will remember this helped.",
+                              systemImage: "sparkles")
+                            .font(Theme.small(13))
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .transition(.opacity)
+                    } else {
+                        Text("How did this land? Only your twin sees your answer.")
+                            .font(Theme.small(13))
+                            .foregroundStyle(.white.opacity(0.85))
+                    }
+                    Button {
+                        Task { await react("helped") }
+                    } label: {
+                        Text("This helped \u{2764}\u{FE0F}")
+                            .font(Theme.button())
+                            .foregroundStyle(Theme.accentDeep)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .background(.white, in: Capsule())
+                    }
+                    Button {
+                        Task { await react("space") }
+                    } label: {
+                        Text("I needed space")
+                            .font(Theme.bodyStrong(15))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .overlay(Capsule().stroke(.white.opacity(0.6), lineWidth: 1))
+                    }
                 }
+                .disabled(reacted != nil)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 16)
             }
@@ -82,5 +113,13 @@ struct SurpriseView: View {
             withAnimation(.spring(response: 0.7, dampingFraction: 0.65)) { appeared = true }
             withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) { pulse = true }
         }
+    }
+
+    private func react(_ reaction: String) async {
+        // Close the surprise even if the server is unreachable; the reaction is a bonus.
+        try? await state.api.react(toSurprise: gesture.id, reaction: reaction)
+        withAnimation { reacted = reaction }
+        try? await Task.sleep(for: .seconds(1.6))
+        dismiss()
     }
 }

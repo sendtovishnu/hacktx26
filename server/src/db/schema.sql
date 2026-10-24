@@ -111,7 +111,10 @@ CREATE TABLE gestures (
   place_name TEXT,
   place_address TEXT,
   note TEXT NOT NULL DEFAULT '',
-  delivered_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  delivered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- How the person helped said it landed ('helped' or 'space'); their twin reads it next time.
+  reaction TEXT,
+  reacted_at TIMESTAMPTZ
 );
 
 CREATE INDEX gestures_nudge_idx ON gestures (nudge_id);

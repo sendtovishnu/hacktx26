@@ -24,6 +24,8 @@ protocol TwinAPI: AnyObject {
     /// `note` is the friend's own words; nil sends the twin's draft.
     func sendGesture(nudgeId: String, suggestionIndex: Int, note: String?) async throws -> Gesture
     func surprises() async throws -> [Gesture]
+    /// Tells your twin how a surprise landed: "helped" or "space".
+    func react(toSurprise gestureId: String, reaction: String) async throws
     func privacy() async throws -> PrivacyInfo
     func updateSettings(surpriseOptIn: Bool?, paused: Bool?) async throws -> User
     func uploadPhoto(_ jpeg: Data) async throws -> User
@@ -173,6 +175,11 @@ final class APIClient: TwinAPI {
     }
 
     func surprises() async throws -> [Gesture] { try await get("api/surprises") }
+
+    func react(toSurprise gestureId: String, reaction: String) async throws {
+        struct Body: Encodable { let reaction: String }
+        let _: Ignored = try await call("POST", "api/surprises/\(gestureId)/reaction", body: Body(reaction: reaction))
+    }
 
     func privacy() async throws -> PrivacyInfo { try await get("api/privacy") }
 

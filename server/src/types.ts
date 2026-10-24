@@ -18,7 +18,10 @@ export interface Signals {
   summaryForClose: string;
 }
 // showedUpForThem: what the user recently did for this friend, e.g. "an oat latte drop-off" (pay it forward).
-export interface TwinFriendInput { friend: User; tier: Tier; sharedFreeMinutes: number; showedUpForThem?: string }
+// lastReaction: how the user said this friend's last gesture landed ('space' means prefer a note).
+export interface TwinFriendInput {
+  friend: User; tier: Tier; sharedFreeMinutes: number; showedUpForThem?: string; lastReaction?: 'helped' | 'space';
+}
 // reason: one sentence for the user's privacy log on why this friend was nudged.
 export interface TwinDecision { friendId: string; message: string; gestureType: GestureType; surpriseNote: string; reason?: string }
 export interface Place { name: string; address: string; rating?: number; openNow?: boolean; mapsUrl?: string }
@@ -31,4 +34,5 @@ export interface Nudge {
   // why the twin nudged (shown to the sender only, in the privacy log).
   draftNote?: string; moment?: string; reason?: string;
 }
-export interface Gesture { id: string; nudgeId: string; fromFriend: User; type: GestureType; place?: Place; note: string; deliveredAt: string }
+// reaction: how the person helped said it landed; their twin reads it next time.
+export interface Gesture { id: string; nudgeId: string; fromFriend: User; type: GestureType; place?: Place; note: string; deliveredAt: string; reaction?: 'helped' | 'space' }

@@ -563,6 +563,8 @@ export function ensureTwinExtras(): Promise<unknown> {
     ALTER TABLE nudges ADD COLUMN IF NOT EXISTS draft_note TEXT;
     ALTER TABLE nudges ADD COLUMN IF NOT EXISTS reason TEXT;
     ALTER TABLE nudges ADD COLUMN IF NOT EXISTS moment TEXT;
+    ALTER TABLE gestures ADD COLUMN IF NOT EXISTS reaction TEXT;
+    ALTER TABLE gestures ADD COLUMN IF NOT EXISTS reacted_at TIMESTAMPTZ;
     CREATE TABLE IF NOT EXISTS summary_overrides (
       user_id TEXT PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
       summary_for_closest TEXT NOT NULL,
@@ -772,6 +774,7 @@ type GestureRow = {
   place_address: string | null;
   note: string;
   delivered_at: Date | string;
+  reaction?: 'helped' | 'space' | null;
 };
 
 export type DbGesture = {
@@ -783,6 +786,7 @@ export type DbGesture = {
   placeAddress: string | null;
   note: string;
   deliveredAt: string;
+  reaction?: 'helped' | 'space';
 };
 
 function mapGestureRow(row: GestureRow): DbGesture {
@@ -795,7 +799,51 @@ function mapGestureRow(row: GestureRow): DbGesture {
     placeAddress: row.place_address,
     note: row.note,
     deliveredAt: toIso(row.delivered_at),
+    reaction: row.reaction ?? undefined,
   };
+}
+
+/**
+ * The person helped tells their twin how a surprise landed. Only they can react,
+ * and only to gestures made for them. Returns false if it isn't theirs.
+ */
+export async function setGestureReaction(
+  gestureId: string,
+  userId: string,
+  reaction: 'helped' | 'space',
+): Promise<boolean> {
+  await ensureTwinExtras();
+  const { rowCount } = await query(
+    `UPDATE gestures g SET reaction = $3, reacted_at = now()
+     FROM nudges n
+     WHERE g.id = $1 AND n.id = g.nudge_id AND n.from_user_id = $2`,
+    [gestureId, userId, reaction],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+/** How `personId` last reacted to something `friendId` did for them, if they did. */
+export async function latestReaction(
+  personId: string,
+  friendId: string,
+): Promise<'helped' | 'space' | null> {
+  await ensureTwinExtras();
+  const { rows } = await query<{ reaction: 'helped' | 'space' }>(
+    `SELECT g.reaction FROM gestures g JOIN nudges n ON n.id = g.nudge_id
+     WHERE n.from_user_id = $1 AND g.from_friend_id = $2 AND g.reaction IS NOT NULL
+     ORDER BY g.reacted_at DESC LIMIT 1`,
+    [personId, friendId],
+  );
+  return rows[0]?.reaction ?? null;
+}
+
+/** "I needed space" last time means a note instead of showing up, whatever the free-time rule says. */
+export async function respectReaction(
+  personId: string,
+  friendId: string,
+  gestureType: GestureType,
+): Promise<GestureType> {
+  return (await latestReaction(personId, friendId)) === 'space' ? 'message' : gestureType;
 }
 
 async function hydrateGesture(row: DbGesture): Promise<Gesture | null> {
@@ -808,6 +856,7 @@ async function hydrateGesture(row: DbGesture): Promise<Gesture | null> {
     type: row.type as GestureType,
     note: row.note,
     deliveredAt: row.deliveredAt,
+    reaction: row.reaction,
   };
   if (row.placeName) {
     const place: Place = {

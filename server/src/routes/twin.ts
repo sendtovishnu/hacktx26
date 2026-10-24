@@ -10,6 +10,7 @@ import {
   getLatestSignal,
   getSummaryOverride,
   insertNudge,
+  latestReaction,
   listEmails,
   listEvents,
   recentGesturesBetween,
@@ -123,6 +124,7 @@ twinRouter.post('/twin/refresh', requireDemoUser, async (req, res) => {
           tier: entry.tier,
           sharedFreeMinutes: sharedFreeMinutes(events, friendEvents),
           showedUpForThem: await showedUpFor(user, entry.friend),
+          lastReaction: (await latestReaction(user.id, entry.friend.id)) ?? undefined,
         });
       }
 
@@ -136,7 +138,9 @@ twinRouter.post('/twin/refresh', requireDemoUser, async (req, res) => {
       decisions = decisions.map((d) => {
         const friend = friends.find((f) => f.friend.id === d.friendId);
         const mins = friend?.sharedFreeMinutes ?? 0;
-        return { ...d, gestureType: gestureFor(signals, mins) };
+        // The person said they needed space last time: a note, not a visit.
+        const gestureType = friend?.lastReaction === 'space' ? 'message' : gestureFor(signals, mins);
+        return { ...d, gestureType };
       });
 
       if (user.paused || !user.surpriseOptIn) {

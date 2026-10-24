@@ -68,22 +68,22 @@ struct PrivacyView: View {
                             .foregroundStyle(Theme.ink2)
                     } else {
                         ForEach(revealed) { nudge in
-                            HStack(alignment: .top, spacing: 12) {
-                                Avatar(name: name(for: nudge.toFriendId), id: nudge.toFriendId, size: 34)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("\(name(for: nudge.toFriendId)) showed up for you")
-                                        .font(Theme.bodyStrong(14))
-                                        .foregroundStyle(Theme.ink)
-                                    Text("Your twin shared: \u{201C}\(nudge.message)\u{201D}")
-                                        .font(Theme.small(12))
-                                        .foregroundStyle(Theme.ink2)
-                                    // Muse's own explanation when it gave one.
-                                    Text(nudge.reason ?? "Because you could use support and they're your \((Tier(rawValue: nudge.contextLevel) ?? .friend).label.lowercased())")
-                                        .font(Theme.small(11))
-                                        .foregroundStyle(Theme.ink3)
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(alignment: .top, spacing: 12) {
+                                    Avatar(name: name(for: nudge.toFriendId), id: nudge.toFriendId, size: 34)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("\(name(for: nudge.toFriendId)) showed up for you")
+                                            .font(Theme.bodyStrong(14))
+                                            .foregroundStyle(Theme.ink)
+                                        // Muse's own explanation when it gave one.
+                                        Text(nudge.reason ?? "Because you could use support and they're your \((Tier(rawValue: nudge.contextLevel) ?? .friend).label.lowercased())")
+                                            .font(Theme.small(12))
+                                            .foregroundStyle(Theme.ink2)
+                                    }
+                                    Spacer(minLength: 0)
+                                    Text(DateText.ago(nudge.createdAt)).font(Theme.small(12)).foregroundStyle(Theme.ink3)
                                 }
-                                Spacer(minLength: 0)
-                                Text(DateText.ago(nudge.createdAt)).font(Theme.small(12)).foregroundStyle(Theme.ink3)
+                                TwinHandshake(nudge: nudge, friendName: firstName(name(for: nudge.toFriendId)), sources: info?.sources)
                             }
                         }
                     }
@@ -196,11 +196,86 @@ struct PrivacyView: View {
         switch tier {
         case .closest: return "Short summary"
         case .close: return "General heads-up"
-        case .friend: return "A light line"
+        case .friend: return "Nothing"
         }
     }
 
     private func name(for userId: String) -> String {
         state.users.first { $0.id == userId }?.name ?? userId
+    }
+
+    private func firstName(_ name: String) -> String {
+        name.split(separator: " ").first.map(String.init) ?? name
+    }
+}
+
+/// Twin to twin, made visible: what each twin knew, what crossed between them,
+/// and what never left your account. Shown only after the friend acted.
+private struct TwinHandshake: View {
+    let nudge: Nudge
+    let friendName: String
+    let sources: PrivacyInfo.Sources?
+    @State private var open = false
+
+    private var yourSources: String {
+        switch (sources?.google ?? false, sources?.ics ?? false) {
+        case (true, _): return "your Google Calendar and Gmail"
+        case (false, true): return "your calendar file"
+        default: return "your calendar and email"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                withAnimation(.snappy) { open.toggle() }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.left.arrow.right.circle")
+                    Text("How your twins worked it out")
+                    Spacer()
+                    Image(systemName: open ? "chevron.up" : "chevron.down").font(.system(size: 12, weight: .semibold))
+                }
+                .font(Theme.semibold(13))
+                .foregroundStyle(Theme.accentDeep)
+            }
+            .buttonStyle(.plain)
+
+            if open {
+                VStack(alignment: .leading, spacing: 12) {
+                    step(1, "Your twin", "Read \(yourSources). Saw you could use support.")
+                    step(2, "To \(friendName)", "\u{201C}\(nudge.message)\u{201D}")
+                    step(3, "To \(friendName)'s twin", "Only when you're busy and where you usually are. Never what you're doing.")
+                    step(4, "\(friendName)'s twin", nudge.moment.map { "Read \(friendName)'s own calendar and found: \u{201C}\($0)\u{201D}" }
+                         ?? "Read \(friendName)'s own calendar to find a good time.")
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "lock.fill").foregroundStyle(Theme.sageInk)
+                        Text("Never left your account: your event names, your emails, anything about other people.")
+                            .font(Theme.small(12))
+                            .foregroundStyle(Theme.sageInk)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.sageLight, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(12)
+        .background(Theme.cream, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func step(_ n: Int, _ who: String, _ what: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text("\(n)")
+                .font(Theme.semibold(12))
+                .foregroundStyle(Theme.onAccent)
+                .frame(width: 22, height: 22)
+                .background(Theme.accent, in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(who).font(Theme.bodyStrong(13)).foregroundStyle(Theme.ink)
+                Text(what).font(Theme.small(12)).foregroundStyle(Theme.ink2)
+            }
+        }
     }
 }

@@ -251,6 +251,12 @@ final class MockAPI: TwinAPI {
         gestureList.filter { $0.helpedUserId == currentUserId }.map(\.gesture)
     }
 
+    func react(toSurprise gestureId: String, reaction: String) async throws {
+        if let i = gestureList.firstIndex(where: { $0.gesture.id == gestureId }) {
+            gestureList[i].gesture.reaction = reaction
+        }
+    }
+
     func privacy() async throws -> PrivacyInfo {
         await delay()
         return PrivacyInfo(
