@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { updateSettings, useDatabase } from '../db/index.js';
 import { requireDemoUser, type DemoRequest } from '../middleware.js';
 import type { User } from '../types.js';
 
 export const settingsRouter = Router();
 
-settingsRouter.patch('/settings', requireDemoUser, (req, res) => {
+settingsRouter.patch('/settings', requireDemoUser, async (req, res) => {
   const user = (req as DemoRequest).demoUser;
   const body = z
     .object({
@@ -22,6 +23,21 @@ settingsRouter.patch('/settings', requireDemoUser, (req, res) => {
     .safeParse(req.body ?? {});
   if (!body.success) {
     res.status(400).json({ error: body.error.flatten() });
+    return;
+  }
+
+  if (useDatabase()) {
+    const updated = await updateSettings(user.id, {
+      surpriseOptIn: body.data.surpriseOptIn,
+      paused: body.data.paused,
+      homeLocation: body.data.homeLocation,
+      preferences: body.data.preferences,
+    });
+    if (!updated) {
+      res.status(404).json({ error: `Unknown demo user: ${user.id}` });
+      return;
+    }
+    res.json(updated);
     return;
   }
 

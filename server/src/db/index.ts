@@ -2,10 +2,19 @@ import type { FriendEntry, Tier, User } from '../types.js';
 import { closePool, getPool, query } from './client.js';
 
 export { closePool, getPool, query };
-export { dbStatus };
+export { dbStatus, useDatabase };
 
 function dbStatus(): { configured: boolean } {
   return { configured: Boolean(process.env.DATABASE_URL?.trim()) };
+}
+
+/**
+ * Prefer Postgres when DATABASE_URL is set, unless USE_MOCKS=true.
+ * Demos stay on mocks when USE_MOCKS=true or DATABASE_URL is missing.
+ */
+function useDatabase(): boolean {
+  if (process.env.USE_MOCKS === 'true') return false;
+  return dbStatus().configured;
 }
 
 type UserRow = {
