@@ -19,7 +19,7 @@ struct Avatar: View {
             .background {
                 if glow {
                     Circle().fill(Theme.glow).frame(width: size + 24, height: size + 24)
-                    Circle().fill(Theme.blush).frame(width: size + 12, height: size + 12)
+                    Circle().fill(Theme.tint).frame(width: size + 12, height: size + 12)
                 }
             }
     }
@@ -35,8 +35,8 @@ struct AccountButton: View {
             showAccount = true
         } label: {
             Avatar(name: state.me?.name ?? "?", size: 34)
-                .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-                .shadow(color: Theme.ink.opacity(0.12), radius: 6, y: 2)
+                .overlay(Circle().strokeBorder(Theme.card, lineWidth: 2))
+                .shadow(color: Theme.shadow.opacity(0.12), radius: 6, y: 2)
         }
         .accessibilityLabel("Account")
         .sheet(isPresented: $showAccount) {
@@ -65,7 +65,7 @@ struct ErrorText: View {
         if let message {
             Label(message, systemImage: "exclamationmark.triangle.fill")
                 .font(Theme.small())
-                .foregroundStyle(Theme.emberDeep)
+                .foregroundStyle(Theme.accentDeep)
         }
     }
 }
@@ -84,7 +84,7 @@ struct PlaceDetails: View {
         HStack(spacing: 10) {
             Image(systemName: "mappin.and.ellipse")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.ember)
+                .foregroundStyle(Theme.accent)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(place.name)
@@ -110,9 +110,9 @@ struct PlaceDetails: View {
                 Link(destination: link) {
                     Image(systemName: "map.fill")
                         .font(.system(size: 14))
-                        .foregroundStyle(Theme.ember)
+                        .foregroundStyle(Theme.accent)
                         .frame(width: 34, height: 34)
-                        .background(Theme.blush, in: Circle())
+                        .background(Theme.tint, in: Circle())
                 }
                 .accessibilityLabel("Open in Maps")
             }

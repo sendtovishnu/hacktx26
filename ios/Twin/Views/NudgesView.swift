@@ -125,7 +125,7 @@ struct SuggestionsView: View {
                     Avatar(name: nudge.fromUser.name, size: 58, glow: true)
                         .padding(12)
                     VStack(alignment: .leading, spacing: 4) {
-                        Eyebrow(text: "A nudge from \(nudge.fromUser.name)'s twin", color: Theme.ember)
+                        Eyebrow(text: "A nudge from \(nudge.fromUser.name)'s twin", color: Theme.accent)
                         Text("\(nudge.fromUser.name) could use you")
                             .font(Theme.heading(24))
                             .foregroundStyle(Theme.ink)
@@ -144,7 +144,7 @@ struct SuggestionsView: View {
                 Eyebrow(text: "Ways to help")
 
                 if loading {
-                    ProgressView().tint(Theme.ember).frame(maxWidth: .infinity).padding()
+                    ProgressView().tint(Theme.accent).frame(maxWidth: .infinity).padding()
                 }
 
                 ForEach(Array(suggestions.enumerated()), id: \.offset) { index, suggestion in
@@ -180,7 +180,7 @@ struct SuggestionsView: View {
             } label: {
                 HStack(spacing: 8) {
                     if sendingIndex == index {
-                        ProgressView().tint(primary ? .white : Theme.emberDeep)
+                        ProgressView().tint(primary ? Theme.onAccent : Theme.accentDeep)
                     }
                     Text(suggestion.gestureType == .message ? "Write it" : "Do this")
                 }

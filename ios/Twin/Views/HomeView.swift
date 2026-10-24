@@ -22,7 +22,7 @@ extension Tier {
 
     var accent: Color {
         switch self {
-        case .closest: return Theme.emberDeep
+        case .closest: return Theme.accentDeep
         case .close: return Theme.ink2
         case .friend: return Theme.ink3
         }
@@ -93,7 +93,7 @@ struct HomeView: View {
                     .foregroundStyle(tier.accent)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
-                    .background(tier == .closest ? Theme.blush : Theme.cream, in: Capsule())
+                    .background(tier == .closest ? Theme.tint : Theme.cream, in: Capsule())
                 Spacer()
             }
             Text(tier.hears)
@@ -195,15 +195,15 @@ struct OrbitView: View {
                     .fill(Theme.glow)
                     .frame(width: radius(.close) * 2, height: radius(.close) * 2)
                 Circle()
-                    .strokeBorder(Theme.peach.opacity(0.6), lineWidth: 1)
+                    .strokeBorder(Theme.accentSoft.opacity(0.6), lineWidth: 1)
                     .frame(width: radius(.close) * 2, height: radius(.close) * 2)
                 Circle()
-                    .fill(Theme.blush)
+                    .fill(Theme.tint)
                     .frame(width: radius(.closest) * 2, height: radius(.closest) * 2)
 
                 Avatar(name: me, size: 52, glow: false)
-                    .overlay(Circle().strokeBorder(.white, lineWidth: 3))
-                    .shadow(color: Theme.ember.opacity(0.3), radius: 10, y: 4)
+                    .overlay(Circle().strokeBorder(Theme.card, lineWidth: 3))
+                    .shadow(color: Theme.accent.opacity(0.3), radius: 10, y: 4)
 
                 ForEach(Tier.innerToOuter) { tier in
                     let members = friends.filter { $0.tier == tier }
@@ -228,8 +228,8 @@ struct OrbitView: View {
             ForEach(Tier.innerToOuter) { tier in
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(tier == .closest ? Theme.blush : tier == .close ? Theme.glow : Color.clear)
-                        .overlay(Circle().strokeBorder(tier == .friend ? Theme.linen : Theme.peach.opacity(0.7), lineWidth: 1))
+                        .fill(tier == .closest ? Theme.tint : tier == .close ? Theme.glow : Color.clear)
+                        .overlay(Circle().strokeBorder(tier == .friend ? Theme.linen : Theme.accentSoft.opacity(0.7), lineWidth: 1))
                         .frame(width: 10, height: 10)
                     Text(tier.circleName.uppercased())
                         .font(Theme.label(10))
@@ -246,8 +246,8 @@ struct OrbitView: View {
         } label: {
             VStack(spacing: 3) {
                 Avatar(name: entry.friend.name, size: entry.tier == .closest ? 38 : 32)
-                    .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-                    .shadow(color: Theme.ink.opacity(0.12), radius: 4, y: 2)
+                    .overlay(Circle().strokeBorder(Theme.card, lineWidth: 2))
+                    .shadow(color: Theme.shadow.opacity(0.12), radius: 4, y: 2)
                 Text(entry.friend.name)
                     .font(Theme.semibold(11))
                     .foregroundStyle(Theme.ink2)
@@ -310,7 +310,7 @@ struct FriendProfileSheet: View {
                                 Task { await save(choice) }
                             } label: {
                                 HStack(spacing: 8) {
-                                    if saving { ProgressView().tint(.white) }
+                                    if saving { ProgressView().tint(Theme.onAccent) }
                                     Text("Move \(entry.friend.name) to \(choice.circleName)")
                                 }
                             }
@@ -370,8 +370,8 @@ struct CircleOption: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 ZStack {
-                    Circle().strokeBorder(selected ? Theme.ember : Theme.linen, lineWidth: 2).frame(width: 22, height: 22)
-                    if selected { Circle().fill(Theme.ember).frame(width: 12, height: 12) }
+                    Circle().strokeBorder(selected ? Theme.accent : Theme.linen, lineWidth: 2).frame(width: 22, height: 22)
+                    if selected { Circle().fill(Theme.accent).frame(width: 12, height: 12) }
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
@@ -385,11 +385,11 @@ struct CircleOption: View {
                 Spacer(minLength: 0)
             }
             .padding(14)
-            .background(selected ? Theme.glow : Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: Theme.ink.opacity(selected ? 0 : 0.05), radius: 6, y: 3)
+            .background(selected ? Theme.glow : Theme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: Theme.shadow.opacity(selected ? 0 : 0.05), radius: 6, y: 3)
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(selected ? Theme.ember.opacity(0.5) : .clear, lineWidth: 1.5)
+                    .strokeBorder(selected ? Theme.accent.opacity(0.5) : .clear, lineWidth: 1.5)
             )
             .opacity(current ? 0.6 : 1)
         }

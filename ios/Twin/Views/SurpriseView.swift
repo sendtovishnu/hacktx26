@@ -51,7 +51,7 @@ struct SurpriseView: View {
 
                 if let place = gesture.place {
                     HStack(spacing: 8) {
-                        Image(systemName: "mappin.and.ellipse").foregroundStyle(Theme.ember)
+                        Image(systemName: "mappin.and.ellipse").foregroundStyle(Theme.accent)
                         Text(place.name).font(Theme.bodyStrong(14)).foregroundStyle(Theme.ink)
                         Text("· on its way").font(Theme.small()).foregroundStyle(Theme.ink2)
                     }
@@ -68,7 +68,7 @@ struct SurpriseView: View {
                 } label: {
                     Text("Thank you, \(gesture.fromFriend.name)")
                         .font(Theme.button())
-                        .foregroundStyle(Theme.emberDeep)
+                        .foregroundStyle(Theme.accentDeep)
                         .frame(maxWidth: .infinity)
                         .frame(height: 54)
                         .background(.white, in: Capsule())
@@ -77,6 +77,7 @@ struct SurpriseView: View {
                 .padding(.bottom, 16)
             }
         }
+        .environment(\.colorScheme, .light)
         .onAppear {
             withAnimation(.spring(response: 0.7, dampingFraction: 0.65)) { appeared = true }
             withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) { pulse = true }

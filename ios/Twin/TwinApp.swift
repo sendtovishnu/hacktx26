@@ -28,6 +28,7 @@ struct TwinApp: App {
 /// Welcome (first launch) -> Sign in -> Setup (first sign-in) -> the app.
 struct RootView: View {
     @EnvironmentObject private var state: AppState
+    @ObservedObject private var theme = ThemeStore.shared
     @AppStorage("hasOnboarded") private var hasSeenWelcome = false
 
     private var openNudgeCount: Int {
@@ -54,9 +55,18 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.35), value: state.isSignedIn)
         .animation(.easeInOut(duration: 0.35), value: state.hasCompletedSetup)
-        .tint(Theme.ember)
+        .tint(Theme.accent)
+        // Accent colors are read when views draw, so redraw everything when the accent changes.
+        .id(theme.accent)
+        .preferredColorScheme(theme.appearance.colorScheme)
         .fullScreenCover(item: $state.activeSurprise) { gesture in
             SurpriseView(gesture: gesture)
+        }
+        .sheet(isPresented: $theme.showAppearance) {
+            AppearanceView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .preferredColorScheme(theme.appearance.colorScheme)
         }
     }
 

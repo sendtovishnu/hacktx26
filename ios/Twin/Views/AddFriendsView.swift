@@ -38,8 +38,8 @@ struct AddFriendsView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(height: 50)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .shadow(color: Theme.ink.opacity(0.05), radius: 8, y: 4)
+                .background(Theme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .shadow(color: Theme.shadow.opacity(0.05), radius: 8, y: 4)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Eyebrow(text: query.isEmpty ? "People you may know" : "On Twin")
@@ -68,10 +68,10 @@ struct AddFriendsView: View {
                     ShareLink(item: "I'm using Twin so my friends and I can show up for each other. Join me?") {
                         Text("Share an invite")
                             .font(Theme.button())
-                            .foregroundStyle(Theme.emberDeep)
+                            .foregroundStyle(Theme.accentDeep)
                             .frame(maxWidth: .infinity)
                             .frame(height: 46)
-                            .background(Theme.blush, in: Capsule())
+                            .background(Theme.tint, in: Capsule())
                     }
                 }
                 .card()
@@ -123,10 +123,10 @@ struct AddFriendsView: View {
                 } label: {
                     Label("Add", systemImage: "plus")
                         .font(Theme.semibold(14))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onAccent)
                         .padding(.horizontal, 14)
                         .frame(height: 34)
-                        .background(Theme.ember, in: Capsule())
+                        .background(Theme.accent, in: Capsule())
                 }
                 .buttonStyle(.plain)
             }
@@ -194,7 +194,7 @@ struct AddFriendSheet: View {
                 Task { await add() }
             } label: {
                 HStack(spacing: 8) {
-                    if saving { ProgressView().tint(.white) }
+                    if saving { ProgressView().tint(Theme.onAccent) }
                     Text(choice.map { "Add to \($0.circleName)" } ?? "Choose a circle")
                 }
             }

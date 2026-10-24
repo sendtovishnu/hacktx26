@@ -59,7 +59,7 @@ struct AccountView: View {
                         }
                         if working {
                             HStack(spacing: 10) {
-                                ProgressView().tint(Theme.ember)
+                                ProgressView().tint(Theme.accent)
                                 Text("Connecting...").font(Theme.small()).foregroundStyle(Theme.ink2)
                             }
                         }
@@ -72,6 +72,30 @@ struct AccountView: View {
                             .foregroundStyle(Theme.ink3)
                     }
                     .card()
+
+                    Button {
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                            ThemeStore.shared.showAppearance = true
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            IconBadge(systemImage: "paintpalette")
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Appearance").font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
+                                Text("\(ThemeStore.shared.accent.name) · \(ThemeStore.shared.appearance.label) mode")
+                                    .font(Theme.small())
+                                    .foregroundStyle(Theme.ink2)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Theme.ink3)
+                        }
+                        .contentShape(Rectangle())
+                        .card()
+                    }
+                    .buttonStyle(.plain)
 
                     VStack(alignment: .leading, spacing: 12) {
                         Eyebrow(text: "Demo: switch account")
@@ -102,10 +126,10 @@ struct AccountView: View {
                     } label: {
                         Text("Sign out")
                             .font(Theme.button())
-                            .foregroundStyle(Theme.emberDeep)
+                            .foregroundStyle(Theme.accentDeep)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(Color.white, in: Capsule())
+                            .background(Theme.card, in: Capsule())
                             .overlay(Capsule().strokeBorder(Theme.linen, lineWidth: 1.5))
                     }
                     .buttonStyle(.plain)
@@ -140,8 +164,8 @@ struct AccountView: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 IconBadge(systemImage: systemImage,
-                          background: connected ? Theme.sageLight : Theme.blush,
-                          foreground: connected ? Theme.sageInk : Theme.ember)
+                          background: connected ? Theme.sageLight : Theme.tint,
+                          foreground: connected ? Theme.sageInk : Theme.accent)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
                     Text(subtitle).font(Theme.small()).foregroundStyle(Theme.ink2)
@@ -150,7 +174,7 @@ struct AccountView: View {
                 if connected {
                     Text("Connected").font(Theme.semibold(12)).foregroundStyle(Theme.sageInk)
                 } else {
-                    Text("Connect").font(Theme.semibold(13)).foregroundStyle(Theme.ember)
+                    Text("Connect").font(Theme.semibold(13)).foregroundStyle(Theme.accent)
                 }
             }
             .contentShape(Rectangle())

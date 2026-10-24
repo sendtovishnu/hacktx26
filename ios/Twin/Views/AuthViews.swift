@@ -13,7 +13,7 @@ struct WelcomeView: View {
                 ZStack {
                     Circle()
                         .fill(RadialGradient(
-                            colors: [Color(hex: 0xFBE3D6), Theme.glow, Theme.paper.opacity(0)],
+                            colors: [Theme.tint, Theme.glow, Theme.paper.opacity(0)],
                             center: .center, startRadius: 0, endRadius: 115
                         ))
                         .frame(width: 230, height: 230)
@@ -87,7 +87,7 @@ struct SignInView: View {
                             Text("Continue with Apple")
                         }
                     }
-                    .buttonStyle(AuthButtonStyle(background: Theme.ink, foreground: .white))
+                    .buttonStyle(AuthButtonStyle(background: Theme.ink, foreground: Theme.paper))
 
                     Button {
                         Task { await signIn() }
@@ -95,11 +95,11 @@ struct SignInView: View {
                         HStack(spacing: 10) {
                             Text("G")
                                 .font(.system(size: 18, weight: .bold, design: .rounded))
-                                .foregroundStyle(Theme.ember)
+                                .foregroundStyle(Theme.accent)
                             Text("Continue with Google")
                         }
                     }
-                    .buttonStyle(AuthButtonStyle(background: .white, foreground: Theme.ink, border: Theme.linen))
+                    .buttonStyle(AuthButtonStyle(background: Theme.card, foreground: Theme.ink, border: Theme.linen))
                 }
 
                 HStack(spacing: 12) {
@@ -124,17 +124,17 @@ struct SignInView: View {
                     }
                     .padding(.horizontal, 16)
                     .frame(height: 54)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(Theme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(emailFocused ? Theme.ember.opacity(0.6) : Theme.linen, lineWidth: 1.5)
+                            .strokeBorder(emailFocused ? Theme.accent.opacity(0.6) : Theme.linen, lineWidth: 1.5)
                     )
 
                     Button {
                         Task { await signIn() }
                     } label: {
                         HStack(spacing: 8) {
-                            if working { ProgressView().tint(.white) }
+                            if working { ProgressView().tint(Theme.onAccent) }
                             Text("Continue with email")
                         }
                     }
@@ -257,7 +257,7 @@ struct SetupView: View {
                 Task { await finish() }
             } label: {
                 HStack(spacing: 8) {
-                    if saving { ProgressView().tint(.white) }
+                    if saving { ProgressView().tint(Theme.onAccent) }
                     Text("Start")
                 }
             }

@@ -53,7 +53,7 @@ struct TwinView: View {
             } label: {
                 HStack(spacing: 8) {
                     if refreshing {
-                        ProgressView().tint(.white)
+                        ProgressView().tint(Theme.onAccent)
                         Text("Reading your week...")
                     } else {
                         Image(systemName: "sparkles")
@@ -97,7 +97,7 @@ struct TwinView: View {
                     ZStack(alignment: .leading) {
                         Capsule().fill(Theme.cream)
                         Capsule()
-                            .fill(LinearGradient(colors: [Theme.sun, Theme.ember], startPoint: .leading, endPoint: .trailing))
+                            .fill(LinearGradient(colors: [Theme.sun, Theme.accent], startPoint: .leading, endPoint: .trailing))
                             .frame(width: geo.size.width * min(signals.busyHoursNext3Days / 42, 1))
                     }
                 }
@@ -107,16 +107,16 @@ struct TwinView: View {
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            LinearGradient(colors: [Color(hex: 0xFFF4EC), .white], startPoint: .topLeading, endPoint: .center),
+            LinearGradient(colors: [Theme.glow, Theme.card], startPoint: .topLeading, endPoint: .center),
             in: RoundedRectangle(cornerRadius: 24, style: .continuous)
         )
-        .shadow(color: Theme.ink.opacity(0.06), radius: 12, y: 8)
+        .shadow(color: Theme.shadow.opacity(0.06), radius: 12, y: 8)
     }
 
     private func sharingCard(_ signals: Signals) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Eyebrow(text: "What friends would see")
-            shareRow(tier: "Closest", color: Theme.emberDeep, text: signals.summaryForClosest, textColor: Theme.ink)
+            shareRow(tier: "Closest", color: Theme.accentDeep, text: signals.summaryForClosest, textColor: Theme.ink)
             shareRow(tier: "Close", color: Theme.ink2, text: signals.summaryForClose, textColor: Theme.ink)
             shareRow(tier: "Friend", color: Theme.ink3, text: "Nothing", textColor: Theme.ink3)
         }
@@ -157,7 +157,7 @@ struct TwinView: View {
     private func color(for level: SupportLevel) -> Color {
         switch level {
         case .doingFine: return Theme.sageInk
-        case .couldUseSupport: return Theme.ember
+        case .couldUseSupport: return Theme.accent
         case .struggling: return Theme.dusk
         }
     }
@@ -165,7 +165,7 @@ struct TwinView: View {
     private func badgeBackground(for level: SupportLevel) -> Color {
         switch level {
         case .doingFine: return Theme.sageLight
-        case .couldUseSupport: return Theme.blush
+        case .couldUseSupport: return Theme.tint
         case .struggling: return Theme.duskLight
         }
     }
