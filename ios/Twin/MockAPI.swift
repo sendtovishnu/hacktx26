@@ -18,6 +18,7 @@ final class MockAPI: TwinAPI {
     }
 
     var currentUserId: String
+    var sessionToken: String?
 
     private var allUsers: [User]
     private var links: [Link]
@@ -119,6 +120,16 @@ final class MockAPI: TwinAPI {
         }
         return FriendEntry(friend: friend, tier: tier)
     }
+
+    /// Mock mode has no real accounts, so Google signs in as Maya with her calendar connected.
+    func signInWithGoogle(idToken: String, serverAuthCode: String?) async throws -> SignInResult {
+        await delay()
+        googleConnected = true
+        guard let maya = allUsers.first(where: { $0.id == "u_maya" }) else { throw APIError.http(404, "No mock Maya") }
+        return SignInResult(token: "mock-session", user: maya, created: false, googleConnected: true)
+    }
+
+    func signOut() async {}
 
     func exchangeGoogleCode(_ code: String) async throws {
         await delay()

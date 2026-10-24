@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { getUser, useDatabase } from './db/index.js';
+import { getUser, getUserBySession, useDatabase } from './db/index.js';
 import { getUserById } from './mocks.js';
 import type { User } from './types.js';
 
@@ -10,6 +10,19 @@ export async function requireDemoUser(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
+  // A signed-in Google account wins over the demo header.
+  const bearer = req.header('Authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (bearer && useDatabase()) {
+    const user = await getUserBySession(bearer);
+    if (!user) {
+      res.status(401).json({ error: 'Session expired. Sign in again.' });
+      return;
+    }
+    (req as DemoRequest).demoUser = user;
+    next();
+    return;
+  }
+
   const header = req.header('X-Demo-User');
   if (!header) {
     res.status(401).json({ error: 'Missing X-Demo-User header' });

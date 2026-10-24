@@ -6,12 +6,16 @@ import Foundation
 @MainActor
 protocol TwinAPI: AnyObject {
     var currentUserId: String { get set }
+    /// Set after a real Google sign-in; sent instead of the demo user header.
+    var sessionToken: String? { get set }
 
     func users() async throws -> [User]
     func me() async throws -> User
     func friends() async throws -> [FriendEntry]
     func setTier(friendId: String, tier: Tier) async throws -> FriendEntry
     func addFriend(friendId: String, tier: Tier) async throws -> FriendEntry
+    func signInWithGoogle(idToken: String, serverAuthCode: String?) async throws -> SignInResult
+    func signOut() async
     func exchangeGoogleCode(_ code: String) async throws
     func ingestGoogle() async throws -> IngestResult
     func ingestICS(data: Data, filename: String) async throws -> IngestResult
@@ -54,12 +58,14 @@ private struct Ignored: Decodable {}
 @MainActor
 final class APIClient: TwinAPI {
     var currentUserId: String
+    var sessionToken: String?
     private let baseURL: URL
     private let session: URLSession
 
-    init(baseURL: URL, userId: String) {
+    init(baseURL: URL, userId: String, sessionToken: String?) {
         self.baseURL = baseURL
         self.currentUserId = userId
+        self.sessionToken = sessionToken
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         self.session = URLSession(configuration: config)
@@ -70,7 +76,11 @@ final class APIClient: TwinAPI {
     private func makeRequest(_ method: String, _ path: String) -> URLRequest {
         var request = URLRequest(url: baseURL.appendingPathComponent(path))
         request.httpMethod = method
-        request.setValue(currentUserId, forHTTPHeaderField: "X-Demo-User")
+        if let sessionToken {
+            request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
+        } else {
+            request.setValue(currentUserId, forHTTPHeaderField: "X-Demo-User")
+        }
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         return request
     }
@@ -113,6 +123,15 @@ final class APIClient: TwinAPI {
     func addFriend(friendId: String, tier: Tier) async throws -> FriendEntry {
         struct Body: Encodable { let friendId: String; let tier: Tier }
         return try await call("POST", "api/friends", body: Body(friendId: friendId, tier: tier))
+    }
+
+    func signInWithGoogle(idToken: String, serverAuthCode: String?) async throws -> SignInResult {
+        struct Body: Encodable { let idToken: String; let serverAuthCode: String? }
+        return try await call("POST", "api/auth/google/signin", body: Body(idToken: idToken, serverAuthCode: serverAuthCode))
+    }
+
+    func signOut() async {
+        let _: Ignored? = try? await call("POST", "api/auth/signout", body: Empty())
     }
 
     func exchangeGoogleCode(_ code: String) async throws {

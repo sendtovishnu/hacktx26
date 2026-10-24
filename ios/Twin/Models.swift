@@ -69,6 +69,14 @@ struct User: Codable, Identifiable, Hashable {
     var photoUrl: String?
 }
 
+struct SignInResult: Decodable {
+    let token: String
+    let user: User
+    /// True the first time this Google account signs in.
+    let created: Bool
+    let googleConnected: Bool
+}
+
 struct FriendEntry: Codable, Identifiable, Hashable {
     var friend: User
     var tier: Tier

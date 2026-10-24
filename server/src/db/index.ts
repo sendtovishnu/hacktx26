@@ -11,6 +11,7 @@ import type {
   Tier,
   User,
 } from '../types.js';
+import { randomBytes } from 'node:crypto';
 import { closePool, getPool, query } from './client.js';
 
 export { closePool, getPool, query };
@@ -78,6 +79,54 @@ export async function listUsers(): Promise<User[]> {
 export async function getUser(id: string): Promise<User | null> {
   const { rows } = await query<UserRow>('SELECT * FROM users WHERE id = $1', [id]);
   return rows[0] ? mapUser(rows[0]) : null;
+}
+
+// Real accounts: Google sign-in creates the user and a session token the app sends as a Bearer header.
+let sessionsReady: Promise<unknown> | null = null;
+function ensureSessions(): Promise<unknown> {
+  sessionsReady ??= query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );`);
+  return sessionsReady;
+}
+
+/** Finds the user with this email (so a seeded demo email keeps its data), or creates one. */
+export async function findOrCreateUserByEmail(
+  email: string,
+  name: string,
+): Promise<{ user: User; created: boolean }> {
+  const existing = await query<UserRow>('SELECT * FROM users WHERE lower(email) = lower($1)', [email]);
+  if (existing.rows[0]) return { user: mapUser(existing.rows[0]), created: false };
+  const id = `u_${randomBytes(6).toString('hex')}`;
+  const { rows } = await query<UserRow>(
+    `INSERT INTO users (id, name, email, preferences) VALUES ($1, $2, $3, $4::jsonb) RETURNING *`,
+    [id, name, email, JSON.stringify({ likes: 'company' })],
+  );
+  return { user: mapUser(rows[0]), created: true };
+}
+
+export async function createSession(userId: string): Promise<string> {
+  await ensureSessions();
+  const token = randomBytes(32).toString('hex');
+  await query('INSERT INTO sessions (token, user_id) VALUES ($1, $2)', [token, userId]);
+  return token;
+}
+
+export async function getUserBySession(token: string): Promise<User | null> {
+  await ensureSessions();
+  const { rows } = await query<UserRow>(
+    'SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = $1',
+    [token],
+  );
+  return rows[0] ? mapUser(rows[0]) : null;
+}
+
+export async function deleteSession(token: string): Promise<void> {
+  await ensureSessions();
+  await query('DELETE FROM sessions WHERE token = $1', [token]);
 }
 
 export async function getFriends(userId: string): Promise<FriendEntry[]> {

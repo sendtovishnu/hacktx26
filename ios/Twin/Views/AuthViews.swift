@@ -1,6 +1,7 @@
 import SwiftUI
 
-// Welcome, sign-in and first-run setup. Sign-in is a demo: no real accounts yet.
+// Welcome, sign-in and first-run setup. Google signs in with a real account;
+// Apple, email and the chips sign in as a seeded demo user.
 
 struct WelcomeView: View {
     let onStart: () -> Void
@@ -57,6 +58,8 @@ struct SignInView: View {
     @EnvironmentObject private var state: AppState
     @State private var email = ""
     @State private var working = false
+    @State private var googleWorking = false
+    @State private var googleError: String?
     @FocusState private var emailFocused: Bool
 
     private let demoAccounts = [("Maya", "maya@example.com"), ("Jay", "jay@example.com"), ("Priya", "priya@example.com")]
@@ -90,16 +93,28 @@ struct SignInView: View {
                     .buttonStyle(AuthButtonStyle(background: Theme.ink, foreground: Theme.paper))
 
                     Button {
-                        Task { await signIn() }
+                        Task { await signInWithGoogle() }
                     } label: {
                         HStack(spacing: 10) {
-                            Text("G")
-                                .font(.system(size: 18, weight: .bold, design: .rounded))
-                                .foregroundStyle(Theme.accent)
+                            if googleWorking {
+                                ProgressView()
+                            } else {
+                                Text("G")
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundStyle(Theme.accent)
+                            }
                             Text("Continue with Google")
                         }
                     }
                     .buttonStyle(AuthButtonStyle(background: Theme.card, foreground: Theme.ink, border: Theme.linen))
+                    .disabled(googleWorking)
+
+                    if let googleError {
+                        Text(googleError)
+                            .font(Theme.small(13))
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(Theme.accentDeep)
+                    }
                 }
 
                 HStack(spacing: 12) {
@@ -176,6 +191,18 @@ struct SignInView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .screenBackground()
+    }
+
+    private func signInWithGoogle() async {
+        googleWorking = true
+        googleError = nil
+        defer { googleWorking = false }
+        do {
+            try await state.signInWithGoogle()
+        } catch where GoogleAuth.isCancel(error) {
+        } catch {
+            googleError = error.localizedDescription
+        }
     }
 
     private func signIn() async {

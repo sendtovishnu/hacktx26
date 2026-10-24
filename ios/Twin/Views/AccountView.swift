@@ -1,9 +1,6 @@
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
-#if canImport(GoogleSignIn)
-import GoogleSignIn
-#endif
 
 /// Opened from the avatar in the top right of every tab.
 struct AccountView: View {
@@ -16,11 +13,6 @@ struct AccountView: View {
     @State private var working = false
     @State private var showImporter = false
     @State private var confirmSignOut = false
-
-    private let scopes = [
-        "https://www.googleapis.com/auth/calendar.readonly",
-        "https://www.googleapis.com/auth/gmail.readonly"
-    ]
 
     var body: some View {
         NavigationStack {
@@ -99,7 +91,7 @@ struct AccountView: View {
 
                     VStack(alignment: .leading, spacing: 12) {
                         Eyebrow(text: "Demo: switch account")
-                        ForEach(state.users.prefix(3)) { user in
+                        ForEach(state.users.filter { ["u_maya", "u_jay", "u_priya"].contains($0.id) }) { user in
                             Button {
                                 Task {
                                     await state.switchUser(to: user.id)
@@ -204,7 +196,9 @@ struct AccountView: View {
             if state.useMockAPI {
                 try await state.api.exchangeGoogleCode("mock-code")
             } else {
-                let code = try await googleServerAuthCode()
+                guard let code = try await GoogleAuth.signIn().serverAuthCode else {
+                    throw APIError.notConfigured("Google did not return a server auth code. Check GIDServerClientID.")
+                }
                 try await state.api.exchangeGoogleCode(code)
             }
             let result = try await state.api.ingestGoogle()
@@ -213,41 +207,6 @@ struct AccountView: View {
         } catch {
             self.error = error.localizedDescription
         }
-    }
-
-    private func googleServerAuthCode() async throws -> String {
-        #if canImport(GoogleSignIn)
-        let clientID = Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String ?? ""
-        let serverClientID = Bundle.main.object(forInfoDictionaryKey: "GIDServerClientID") as? String ?? ""
-        guard !clientID.isEmpty, !serverClientID.isEmpty else {
-            throw APIError.notConfigured("Google sign-in isn't set up in this build. Add GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID, and GOOGLE_WEB_CLIENT_SECRET to server/.env (see README), run make google-check, then rebuild with make sim or make phone.")
-        }
-        guard let presenter = topViewController() else {
-            throw APIError.notConfigured("Could not find a screen to show Google sign-in on.")
-        }
-        let result = try await GIDSignIn.sharedInstance.signIn(
-            withPresenting: presenter,
-            hint: nil,
-            additionalScopes: scopes
-        )
-        guard let code = result.serverAuthCode, !code.isEmpty else {
-            throw APIError.notConfigured("Google did not return a server auth code. Check GIDServerClientID.")
-        }
-        return code
-        #else
-        throw APIError.notConfigured("Add the GoogleSignIn package first: File > Add Package Dependencies > https://github.com/google/GoogleSignIn-iOS (product GoogleSignIn).")
-        #endif
-    }
-
-    private func topViewController() -> UIViewController? {
-        let scene = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first { $0.activationState == .foregroundActive }
-        var top = scene?.windows.first { $0.isKeyWindow }?.rootViewController
-        while let presented = top?.presentedViewController {
-            top = presented
-        }
-        return top
     }
 
     private func importICS(_ result: Result<URL, Error>) async {

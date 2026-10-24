@@ -17,6 +17,10 @@ final class AppState: ObservableObject {
     @Published var serverURL: String {
         didSet { UserDefaults.standard.set(serverURL, forKey: "serverURL") }
     }
+    /// Session from a real Google sign-in. Nil means the demo accounts are in use.
+    @Published private(set) var sessionToken: String? {
+        didSet { UserDefaults.standard.set(sessionToken, forKey: "sessionToken") }
+    }
     @Published var isSignedIn: Bool {
         didSet { UserDefaults.standard.set(isSignedIn, forKey: "isSignedIn") }
     }
@@ -48,17 +52,19 @@ final class AppState: ObservableObject {
             .flatMap { $0.isEmpty ? nil : $0 }
         let useMock = defaults.object(forKey: "useMockAPI") as? Bool ?? (builtInURL == nil)
         let url = defaults.string(forKey: "serverURL") ?? builtInURL ?? "http://localhost:3000"
+        let token = defaults.string(forKey: "sessionToken")
         demoUserId = userId
         useMockAPI = useMock
         serverURL = url
+        sessionToken = token
         isSignedIn = defaults.bool(forKey: "isSignedIn")
         hasCompletedSetup = defaults.bool(forKey: "hasCompletedSetup")
-        api = AppState.makeAPI(useMock: useMock, serverURL: url, userId: userId)
+        api = AppState.makeAPI(useMock: useMock, serverURL: url, userId: userId, sessionToken: token)
     }
 
-    private static func makeAPI(useMock: Bool, serverURL: String, userId: String) -> TwinAPI {
+    private static func makeAPI(useMock: Bool, serverURL: String, userId: String, sessionToken: String?) -> TwinAPI {
         if !useMock, let url = URL(string: serverURL) {
-            return APIClient(baseURL: url, userId: userId)
+            return APIClient(baseURL: url, userId: userId, sessionToken: sessionToken)
         }
         return MockAPI(userId: userId)
     }
@@ -89,6 +95,8 @@ final class AppState: ObservableObject {
     }
 
     func switchUser(to id: String) async {
+        // Picking a demo account leaves the real one.
+        if sessionToken != nil, id != demoUserId { clearSession() }
         demoUserId = id
         api.currentUserId = id
         resetFeed()
@@ -101,7 +109,9 @@ final class AppState: ObservableObject {
 
     /// Rebuilds the API after the mock switch or server URL changes.
     func applyConnectionSettings() async {
-        api = AppState.makeAPI(useMock: useMockAPI, serverURL: serverURL, userId: demoUserId)
+        // A session belongs to one server, so a new address or mock mode needs a fresh sign-in.
+        if sessionToken != nil { clearSession() }
+        api = AppState.makeAPI(useMock: useMockAPI, serverURL: serverURL, userId: demoUserId, sessionToken: nil)
         resetFeed()
         reloadToken += 1
         await start()
@@ -124,8 +134,44 @@ final class AppState: ObservableObject {
         isSignedIn = true
     }
 
+    /// Real sign-in: Google proves who you are, the server finds or creates your account
+    /// and connects your Calendar and Gmail in the same step.
+    func signInWithGoogle() async throws {
+        let credentials = try await GoogleAuth.signIn()
+        let result = try await api.signInWithGoogle(idToken: credentials.idToken, serverAuthCode: credentials.serverAuthCode)
+        if !useMockAPI {
+            sessionToken = result.token
+            api.sessionToken = result.token
+        }
+        demoUserId = result.user.id
+        api.currentUserId = result.user.id
+        me = result.user
+        resetFeed()
+        hasLoadedOnce = true
+        reloadToken += 1
+        if result.created { hasCompletedSetup = false }
+        isSignedIn = true
+        await reloadUsers()
+        await poll()
+        if result.googleConnected {
+            // Pull the week in the background so the twin has something to read.
+            Task { _ = try? await api.ingestGoogle() }
+        }
+    }
+
     func signOut() {
+        if sessionToken != nil {
+            let api = api
+            Task { await api.signOut() }
+            clearSession()
+        }
         isSignedIn = false
+    }
+
+    private func clearSession() {
+        sessionToken = nil
+        api.sessionToken = nil
+        GoogleAuth.signOut()
     }
 
     func updateMe(_ user: User) {

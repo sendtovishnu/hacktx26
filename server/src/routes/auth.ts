@@ -1,8 +1,15 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
-import { getUser, useDatabase } from '../db/index.js';
+import {
+  createSession,
+  deleteSession,
+  findOrCreateUserByEmail,
+  getUser,
+  useDatabase,
+} from '../db/index.js';
 import {
   exchangeGoogleAuth,
+  verifyGoogleIdToken,
   exchangeGoogleAuthWeb,
   getGoogleAuthUrl,
   googleStatus,
@@ -37,7 +44,12 @@ function readCookie(req: Request, name: string): string {
 authRouter.post('/auth/google/exchange', requireDemoUser, async (req, res) => {
   const user = (req as DemoRequest).demoUser;
   const body = z
-    .object({ code: z.string().optional(), idToken: z.string().optional() })
+    .object({
+      code: z.string().optional(),
+      // The iOS app sends the code under this name.
+      serverAuthCode: z.string().optional(),
+      idToken: z.string().optional(),
+    })
     .safeParse(req.body ?? {});
   if (!body.success) {
     res.status(400).json({ error: body.error.flatten() });
@@ -45,13 +57,62 @@ authRouter.post('/auth/google/exchange', requireDemoUser, async (req, res) => {
   }
 
   try {
-    await exchangeGoogleAuth(user.id, body.data.code);
+    await exchangeGoogleAuth(user.id, body.data.code ?? body.data.serverAuthCode);
     res.json({ connected: true });
   } catch (err) {
     res.status(400).json({
       error: err instanceof Error ? err.message : 'Google exchange failed',
     });
   }
+});
+
+/**
+ * Real sign-in from the iOS app. Verifies the Google ID token, finds or creates the user
+ * by email, and returns a session token. A serverAuthCode also connects Calendar and Gmail.
+ */
+authRouter.post('/auth/google/signin', async (req, res) => {
+  const body = z
+    .object({ idToken: z.string().min(1), serverAuthCode: z.string().optional() })
+    .safeParse(req.body ?? {});
+  if (!body.success) {
+    res.status(400).json({ error: body.error.flatten() });
+    return;
+  }
+  if (!useDatabase()) {
+    res.status(503).json({ error: 'Real accounts need DATABASE_URL set on the server.' });
+    return;
+  }
+
+  let profile: { email: string; name: string };
+  try {
+    profile = await verifyGoogleIdToken(body.data.idToken);
+  } catch (err) {
+    res.status(401).json({
+      error: err instanceof Error ? err.message : 'Google sign-in could not be verified',
+    });
+    return;
+  }
+
+  const { user, created } = await findOrCreateUserByEmail(profile.email, profile.name);
+  const token = await createSession(user.id);
+
+  let googleConnected = false;
+  if (body.data.serverAuthCode) {
+    try {
+      await exchangeGoogleAuth(user.id, body.data.serverAuthCode);
+      googleConnected = true;
+    } catch (err) {
+      console.warn('Google code exchange at sign-in failed:', err);
+    }
+  }
+
+  res.json({ token, user, created, googleConnected });
+});
+
+authRouter.post('/auth/signout', async (req, res) => {
+  const bearer = req.header('Authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (bearer && useDatabase()) await deleteSession(bearer);
+  res.json({ ok: true });
 });
 
 /** Start browser Google OAuth for a demo user. */

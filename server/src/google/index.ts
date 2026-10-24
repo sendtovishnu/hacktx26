@@ -99,6 +99,25 @@ export function getGoogleAuthUrl(userId: string): string {
   });
 }
 
+/**
+ * Checks an ID token from Google Sign-In. The iOS app's tokens are issued to the iOS client,
+ * so both client IDs are accepted.
+ */
+export async function verifyGoogleIdToken(idToken: string): Promise<{ email: string; name: string }> {
+  const audience = [process.env.GOOGLE_IOS_CLIENT_ID, process.env.GOOGLE_WEB_CLIENT_ID]
+    .map((id) => id?.trim())
+    .filter((id): id is string => Boolean(id));
+  if (audience.length === 0) {
+    throw new Error('GOOGLE_IOS_CLIENT_ID / GOOGLE_WEB_CLIENT_ID are not set on the server');
+  }
+  const ticket = await new google.auth.OAuth2().verifyIdToken({ idToken, audience });
+  const payload = ticket.getPayload();
+  if (!payload?.email || payload.email_verified === false) {
+    throw new Error('Google account has no verified email');
+  }
+  return { email: payload.email, name: payload.name || payload.email.split('@')[0] };
+}
+
 /** True when a stored connection has a real access token (not a stub). */
 export async function hasRealGoogleTokens(userId: string): Promise<boolean> {
   if (!useDatabase()) return false;

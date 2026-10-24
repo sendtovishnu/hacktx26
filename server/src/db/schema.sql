@@ -1,4 +1,5 @@
 -- Idempotent reset: drop dependents first via CASCADE.
+DROP TABLE IF EXISTS sessions CASCADE;
 DROP TABLE IF EXISTS summary_overrides CASCADE;
 DROP TABLE IF EXISTS gestures CASCADE;
 DROP TABLE IF EXISTS nudges CASCADE;
@@ -17,6 +18,12 @@ CREATE TABLE users (
   preferences JSONB NOT NULL DEFAULT '{}'::jsonb,
   surprise_opt_in BOOLEAN NOT NULL DEFAULT false,
   paused BOOLEAN NOT NULL DEFAULT false
+);
+
+CREATE TABLE sessions (
+  token TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE friendships (
