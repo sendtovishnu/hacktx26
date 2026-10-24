@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Lucky Lab Coffee Co.",
+    "address": "2421 San Antonio St, Austin, TX 78705",
+    "rating": 4.4,
+    "openNow": true,
+    "mapsUrl": "https://www.google.com/maps/search/?api=1&query=Lucky+Lab+Coffee+Co.+2421+San+Antonio+St%2C+Austin%2C+TX+78705&query_place_id=ChIJK1vgC3i1RIYRsSCz9uP0hkQ"
+  },
+  {
+    "name": "Union Coffee House",
+    "address": "2308 Whitis Ave, Austin, TX 78712",
+    "rating": 3,
+    "openNow": true,
+    "mapsUrl": "https://www.google.com/maps/search/?api=1&query=Union+Coffee+House+2308+Whitis+Ave%2C+Austin%2C+TX+78712&query_place_id=ChIJv14SiRu1RIYRwXjf5iqcKDk"
+  },
+  {
+    "name": "Centro",
+    "address": "2348 Guadalupe St, Austin, TX 78705",
+    "rating": 4.4,
+    "openNow": true,
+    "mapsUrl": "https://www.google.com/maps/search/?api=1&query=Centro+2348+Guadalupe+St%2C+Austin%2C+TX+78705&query_place_id=ChIJUXJqzC61RIYRLn43sO8eskA"
+  }
+]
