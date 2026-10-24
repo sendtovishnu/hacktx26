@@ -1,23 +1,23 @@
 [
   {
-    "name": "Houndstooth Coffee",
-    "address": "401 Congress Ave, Austin, TX",
-    "rating": 4.6,
+    "name": "Lucky Lab Coffee Co.",
+    "address": "2421 San Antonio St, Austin, TX 78705",
+    "rating": 4.4,
     "openNow": true,
-    "mapsUrl": "https://maps.google.com/?q=Houndstooth+Coffee+Austin"
+    "mapsUrl": "https://www.google.com/maps/search/?api=1&query=Lucky+Lab+Coffee+Co.+2421+San+Antonio+St%2C+Austin%2C+TX+78705&query_place_id=ChIJK1vgC3i1RIYRsSCz9uP0hkQ"
   },
   {
-    "name": "Abel’s Coffeehouse",
-    "address": "2200 Rio Grande St, Austin, TX",
-    "rating": 4.5,
+    "name": "Union Coffee House",
+    "address": "2308 Whitis Ave, Austin, TX 78712",
+    "rating": 3,
     "openNow": true,
-    "mapsUrl": "https://maps.google.com/?q=Abels+Coffeehouse+Austin"
+    "mapsUrl": "https://www.google.com/maps/search/?api=1&query=Union+Coffee+House+2308+Whitis+Ave%2C+Austin%2C+TX+78712&query_place_id=ChIJv14SiRu1RIYRwXjf5iqcKDk"
   },
   {
-    "name": "Starbucks — PCL",
-    "address": "Perry-Castañeda Library, Austin, TX",
-    "rating": 3.9,
+    "name": "Centro",
+    "address": "2348 Guadalupe St, Austin, TX 78705",
+    "rating": 4.4,
     "openNow": true,
-    "mapsUrl": "https://maps.google.com/?q=Starbucks+PCL+UT+Austin"
+    "mapsUrl": "https://www.google.com/maps/search/?api=1&query=Centro+2348+Guadalupe+St%2C+Austin%2C+TX+78705&query_place_id=ChIJUXJqzC61RIYRLn43sO8eskA"
   }
 ]

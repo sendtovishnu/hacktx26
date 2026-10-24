@@ -544,6 +544,13 @@ async function hydrateNudge(row: DbNudge): Promise<Nudge | null> {
   };
 }
 
+// Databases created before draft_note existed get the column on first use, no reset needed.
+let draftNoteColumnReady: Promise<unknown> | null = null;
+function ensureDraftNoteColumn(): Promise<unknown> {
+  draftNoteColumnReady ??= query(`ALTER TABLE nudges ADD COLUMN IF NOT EXISTS draft_note TEXT`);
+  return draftNoteColumnReady;
+}
+
 export async function insertNudge(input: {
   id: string;
   fromUserId: string;
@@ -551,14 +558,17 @@ export async function insertNudge(input: {
   message: string;
   contextLevel: 'closest' | 'close';
   status?: 'sent' | 'seen' | 'acted';
+  draftNote?: string;
 }): Promise<void> {
+  await ensureDraftNoteColumn();
   await query(
-    `INSERT INTO nudges (id, from_user_id, to_friend_id, message, context_level, status)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO nudges (id, from_user_id, to_friend_id, message, context_level, status, draft_note)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT (id) DO UPDATE SET
        message = EXCLUDED.message,
        context_level = EXCLUDED.context_level,
-       status = EXCLUDED.status`,
+       status = EXCLUDED.status,
+       draft_note = EXCLUDED.draft_note`,
     [
       input.id,
       input.fromUserId,
@@ -566,8 +576,19 @@ export async function insertNudge(input: {
       input.message,
       input.contextLevel,
       input.status ?? 'sent',
+      input.draftNote ?? null,
     ],
   );
+}
+
+/** Muse's starter surprise note for a nudge, if the twin wrote one. */
+export async function getNudgeDraftNote(id: string): Promise<string | null> {
+  await ensureDraftNoteColumn();
+  const { rows } = await query<{ draft_note: string | null }>(
+    `SELECT draft_note FROM nudges WHERE id = $1`,
+    [id],
+  );
+  return rows[0]?.draft_note ?? null;
 }
 
 export async function updateNudgeStatus(

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Google Sign-In: paste the iOS client ID from Person A here. -->
+	<key>GIDClientID</key>
+	<string></string>
+	<!-- Google Sign-In: the server's Web client ID, so sign-in returns a serverAuthCode. -->
+	<key>GIDServerClientID</key>
+	<string></string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- The iOS client ID reversed, e.g. com.googleusercontent.apps.1234-abcd -->
+				<string>com.googleusercontent.apps.REPLACE_ME</string>
+			</array>
+		</dict>
+	</array>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Fraunces-SemiBold.ttf</string>
+		<string>Fraunces-Italic.ttf</string>
+		<string>Fraunces-Regular.ttf</string>
+		<string>DMSans-Regular.ttf</string>
+		<string>DMSans-Medium.ttf</string>
+		<string>DMSans-SemiBold.ttf</string>
+		<string>DMSans-Bold.ttf</string>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Lets the app reach the server over plain http on localhost or the LAN. -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

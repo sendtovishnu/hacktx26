@@ -5,6 +5,7 @@ import {
   getGesture,
   getLatestSignal,
   getNudge,
+  getNudgeDraftNote,
   insertGesture,
   listEvents,
   toCalendarEvents,
@@ -27,6 +28,8 @@ export const gesturesRouter = Router();
 const bodySchema = z.object({
   nudgeId: z.string().min(1),
   suggestionIndex: z.number().int().nonnegative(),
+  // The friend's own words; falls back to Muse's draft, then the template.
+  note: z.string().trim().min(1).max(500).optional(),
 });
 
 gesturesRouter.post('/gestures', requireDemoUser, async (req, res) => {
@@ -77,7 +80,10 @@ gesturesRouter.post('/gestures', requireDemoUser, async (req, res) => {
 
       const id = `g_${randomUUID()}`;
       const deliveredAt = new Date().toISOString();
-      const note = surpriseNoteFor(choice, nudge.fromUser);
+      const note =
+        body.data.note ??
+        (await getNudgeDraftNote(nudgeId)) ??
+        surpriseNoteFor(choice, nudge.fromUser);
       await insertGesture({
         id,
         nudgeId,

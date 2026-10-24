@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Medici Roasting",
+    "address": "2222 Guadalupe St, Austin, TX",
+    "rating": 4.5,
+    "openNow": true,
+    "mapsUrl": "https://maps.apple.com/?q=Medici%20Roasting%20Guadalupe%20Austin"
+  },
+  {
+    "name": "Cafe Medici at the Texas Union",
+    "address": "2308 Whitis Ave, Austin, TX",
+    "rating": 4.3,
+    "openNow": true,
+    "mapsUrl": "https://maps.apple.com/?q=Texas%20Union%20Austin"
+  },
+  {
+    "name": "Epoch Coffee",
+    "address": "221 W N Loop Blvd, Austin, TX",
+    "rating": 4.4,
+    "openNow": true,
+    "mapsUrl": "https://maps.apple.com/?q=Epoch%20Coffee%20North%20Loop%20Austin"
+  }
+]
