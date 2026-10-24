@@ -74,7 +74,7 @@ authRouter.get('/auth/google/callback', async (req, res) => {
     res
       .status(400)
       .type('html')
-      .send(errorPage(`Google denied access: ${error}. ${req.query.error_description ?? ''}`));
+      .send(errorPage(`Google denied access: ${escapeHtml(error)}. ${escapeHtml(String(req.query.error_description ?? ''))}`));
     return;
   }
 
@@ -111,9 +111,14 @@ authRouter.get('/auth/google/callback', async (req, res) => {
     const hint = /redirect_uri/i.test(message)
       ? ` Add this exact Authorized redirect URI on your Google Web client: <code>${webRedirectUri()}</code>`
       : '';
-    res.status(400).type('html').send(errorPage(`${message}.${hint}`));
+    res.status(400).type('html').send(errorPage(`${escapeHtml(message)}.${hint}`));
   }
 });
+
+/** Query strings and Google's error text go into HTML; escape them so a crafted link can't inject script. */
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+}
 
 function layout(title: string, body: string): string {
   return `<!doctype html>
