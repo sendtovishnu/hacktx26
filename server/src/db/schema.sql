@@ -83,6 +83,8 @@ CREATE TABLE nudges (
   message TEXT NOT NULL,
   context_level TEXT NOT NULL CHECK (context_level IN ('closest', 'close')),
   status TEXT NOT NULL CHECK (status IN ('sent', 'seen', 'acted')),
+  -- Muse's starter surprise note; the friend can edit it before sending.
+  draft_note TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

@@ -27,21 +27,25 @@ const chicagoDateFmt = new Intl.DateTimeFormat('en-CA', {
   day: '2-digit',
 });
 
-/** Tomorrow in America/Chicago as YYYY-MM-DD. */
-export function tomorrowChicagoDate(): string {
+/** Today + `offset` days in America/Chicago as YYYY-MM-DD. */
+function chicagoDatePlus(offset: number): string {
   const today = chicagoDateFmt.format(new Date()); // YYYY-MM-DD
   const [y, m, d] = today.split('-').map(Number);
-  // UTC noon on calendar tomorrow → same calendar day in Chicago (UTC-5/-6).
-  const next = new Date(Date.UTC(y, m - 1, d + 1, 12, 0, 0));
+  // UTC noon on the target calendar day → same calendar day in Chicago (UTC-5/-6).
+  const next = new Date(Date.UTC(y, m - 1, d + offset, 12, 0, 0));
   return chicagoDateFmt.format(next);
 }
 
+/** Tomorrow in America/Chicago as YYYY-MM-DD. */
+export function tomorrowChicagoDate(): string {
+  return chicagoDatePlus(1);
+}
+
 /**
- * Contiguous busy blocks for Jay covering 09:00–22:00 America/Chicago
- * so there is no ≥30 min free window to overlap with Maya tomorrow.
+ * Contiguous busy blocks for Jay covering 09:00–22:00 America/Chicago on `day`
+ * so there is no ≥30 min free window to overlap with Maya.
  */
-function jayBusyBlocksTomorrow(): MockEvent[] {
-  const day = tomorrowChicagoDate();
+function jayBusyBlocksOn(day: string): MockEvent[] {
   // Fixed -05:00 matches mock event style (CDT; demo dates are mid/late Oct).
   const t = (hh: number, mm: number) =>
     `${day}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00-05:00`;
@@ -146,9 +150,11 @@ export async function seed(): Promise<void> {
     );
   }
 
-  // Jay: fully busy tomorrow 9am–10pm → no 30+ min free overlap with Maya.
-  const jayDay = tomorrowChicagoDate();
-  for (const event of jayBusyBlocksTomorrow()) {
+  // Jay: fully busy 9am–10pm today and the next 2 days, the same 3-day window
+  // sharedFreeMinutes checks → no 30+ min free overlap with Maya → drop-off.
+  const jayDays = [0, 1, 2].map(chicagoDatePlus);
+  const jayDay = `${jayDays[0]}..${jayDays[2]}`;
+  for (const event of jayDays.flatMap(jayBusyBlocksOn)) {
     await query(
       `INSERT INTO events (user_id, title, "start", "end", location, source)
        VALUES ($1, $2, $3::timestamptz, $4::timestamptz, $5, 'ics')`,

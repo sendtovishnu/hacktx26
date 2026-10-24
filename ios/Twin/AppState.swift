@@ -108,7 +108,10 @@ final class AppState: ObservableObject {
     func signIn(email: String? = nil) async {
         if users.isEmpty { await reloadUsers() }
         let typed = (email ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        // Mock users are @example.com and the server's are @utexas.edu, so fall back to the name before the @.
+        let localPart = { (s: String) in s.split(separator: "@").first.map(String.init) ?? s }
         let match = users.first { $0.email.lowercased() == typed }
+            ?? users.first { localPart($0.email.lowercased()) == localPart(typed) }
         let id = match?.id ?? "u_maya"
         if id != demoUserId {
             await switchUser(to: id)

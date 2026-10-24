@@ -95,6 +95,7 @@ twinRouter.post('/twin/refresh', requireDemoUser, async (req, res) => {
           message: decision.message,
           contextLevel,
           status: 'sent',
+          draftNote: decision.surpriseNote,
         });
       }
 
