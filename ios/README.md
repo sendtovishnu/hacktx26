@@ -26,11 +26,20 @@ Privacy tab > Developer: turn off **Use mock data**, set the server URL, tap **A
 
 ## Turn on Google sign-in (Account > Connected accounts)
 
-1. File > Add Package Dependencies > `https://github.com/google/GoogleSignIn-iOS`, add the **GoogleSignIn** product to the Twin target. The sign-in code switches on automatically once the package is present.
-2. In `Twin-Info.plist`, fill in:
-   - `GIDClientID`: the **iOS** OAuth client ID from Person A
-   - `GIDServerClientID`: the **Web** OAuth client ID (so sign-in returns a `serverAuthCode` for the server)
-   - the URL scheme: the iOS client ID reversed (`com.googleusercontent.apps.…`)
+Do **not** hand-edit `Twin-Info.plist`. Person A pastes three values into `server/.env`, then you rebuild with Make so the IDs are baked into the app:
+
+```bash
+# in server/.env (never commit):
+GOOGLE_IOS_CLIENT_ID=….apps.googleusercontent.com
+GOOGLE_WEB_CLIENT_ID=….apps.googleusercontent.com
+GOOGLE_WEB_CLIENT_SECRET=…
+
+make google-check   # fails with a clear message if any are empty
+make server         # restart after editing .env
+make sim            # or make phone
+```
+
+Full Google Cloud console steps are in the root README under **Connect Google Calendar and Gmail**. The GoogleSignIn package is already pinned in the Xcode project.
 
 ## Files
 

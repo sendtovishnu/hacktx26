@@ -13,22 +13,37 @@ SERVER_URL ?= http://$(LAN_IP):$(PORT)
 env_value  = $(shell sed -n 's/^$(1)=//p' server/.env 2>/dev/null)
 GOOGLE_IOS_CLIENT_ID ?= $(call env_value,GOOGLE_IOS_CLIENT_ID)
 GOOGLE_WEB_CLIENT_ID ?= $(call env_value,GOOGLE_WEB_CLIENT_ID)
+GOOGLE_WEB_CLIENT_SECRET ?= $(call env_value,GOOGLE_WEB_CLIENT_SECRET)
 # 1234-abcd.apps.googleusercontent.com -> com.googleusercontent.apps.1234-abcd
 GOOGLE_IOS_URL_SCHEME := $(if $(GOOGLE_IOS_CLIENT_ID),com.googleusercontent.apps.$(GOOGLE_IOS_CLIENT_ID:.apps.googleusercontent.com=))
 
 XCODE      := xcodebuild -project ios/Twin.xcodeproj -scheme Twin -configuration Debug -quiet \
-              GOOGLE_IOS_CLIENT_ID=$(GOOGLE_IOS_CLIENT_ID) GOOGLE_WEB_CLIENT_ID=$(GOOGLE_WEB_CLIENT_ID) \
-              GOOGLE_IOS_URL_SCHEME=$(GOOGLE_IOS_URL_SCHEME)
+              GOOGLE_IOS_CLIENT_ID='$(GOOGLE_IOS_CLIENT_ID)' GOOGLE_WEB_CLIENT_ID='$(GOOGLE_WEB_CLIENT_ID)' \
+              GOOGLE_IOS_URL_SCHEME='$(GOOGLE_IOS_URL_SCHEME)'
 APP_DEVICE := build/ios-device/Build/Products/Debug-iphoneos/Twin.app
 APP_SIM    := build/ios-sim/Build/Products/Debug-iphonesimulator/Twin.app
 SIM_BUNDLE := com.sendtovishnu.hacktx26.twin
 
 export LC_ALL := en_US.UTF-8
 
-.PHONY: help setup server db-start db-stop db-reset test-ai sim phone phone-build devices ip tunnel
+.PHONY: help setup server db-start db-stop db-reset test-ai sim phone phone-build devices ip tunnel google-check
 
 help: ## List commands
 	@grep -hE '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | sed -E 's/^([a-z-]+):.*## (.*)/\1|\2/' | awk -F'|' '{printf "  make %-12s %s\n", $$1, $$2}'
+
+google-check: ## Verify Google OAuth vars in server/.env (needed for Account > Connect)
+	@missing=0; \
+	for key in GOOGLE_IOS_CLIENT_ID GOOGLE_WEB_CLIENT_ID GOOGLE_WEB_CLIENT_SECRET; do \
+	  val=$$(sed -n "s/^$${key}=//p" server/.env 2>/dev/null); \
+	  if [ -z "$$val" ]; then echo "missing $$key in server/.env"; missing=1; fi; \
+	done; \
+	if [ "$$missing" = 1 ]; then \
+	  echo ""; \
+	  echo "Fill the three GOOGLE_* values from console.cloud.google.com (see README: Connect Google Calendar and Gmail),"; \
+	  echo "then: make server && make sim   # or make phone"; \
+	  exit 1; \
+	fi; \
+	echo "Google OAuth vars look set. Rebuild with make sim / make phone after any change."
 
 setup: ## One-time setup: tools, deps, server/.env, local Postgres, seed data
 	@PGDATA="$(PGDATA)" ./scripts/dev-setup.sh
@@ -49,6 +64,9 @@ test-ai: ## Run the AI and places checks against the live APIs
 	cd server && npx tsx --env-file=.env scripts/try-ai.ts
 
 sim: ## Build, install and launch on the iOS Simulator
+	@if [ -z "$(GOOGLE_IOS_CLIENT_ID)" ] || [ -z "$(GOOGLE_WEB_CLIENT_ID)" ]; then \
+	  echo "Note: GOOGLE_IOS_CLIENT_ID / GOOGLE_WEB_CLIENT_ID empty in server/.env — Google Connect will show a setup message. Run make google-check."; \
+	fi
 	$(XCODE) -destination "platform=iOS Simulator,name=$(SIMULATOR)" -derivedDataPath build/ios-sim TWIN_SERVER_URL=http://localhost:$(PORT) build
 	xcrun simctl boot "$(SIMULATOR)" 2>/dev/null || true
 	@open "$$(xcode-select -p)/Applications/Simulator.app" 2>/dev/null || true

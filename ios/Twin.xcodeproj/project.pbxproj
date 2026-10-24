@@ -192,6 +192,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				/* Overridden by `make sim` / `make phone` from server/.env. Empty = Connect Google shows setup help. */
+				GOOGLE_IOS_CLIENT_ID = "";
+				GOOGLE_IOS_URL_SCHEME = "";
+				GOOGLE_WEB_CLIENT_ID = "";
 				INFOPLIST_FILE = "Twin-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Twin;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -220,6 +224,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				GOOGLE_IOS_CLIENT_ID = "";
+				GOOGLE_IOS_URL_SCHEME = "";
+				GOOGLE_WEB_CLIENT_ID = "";
 				INFOPLIST_FILE = "Twin-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Twin;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

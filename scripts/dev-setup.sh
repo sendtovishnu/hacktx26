@@ -68,4 +68,19 @@ else
   echo "All keys set"
 fi
 
+# Ensure Google OAuth keys exist (may be empty until Person A fills them).
+for key in GOOGLE_IOS_CLIENT_ID GOOGLE_WEB_CLIENT_ID GOOGLE_WEB_CLIENT_SECRET; do
+  grep -q "^$key=" "$ENV_FILE" || printf '%s=\n' "$key" >> "$ENV_FILE"
+done
+google_missing=()
+for key in GOOGLE_IOS_CLIENT_ID GOOGLE_WEB_CLIENT_ID GOOGLE_WEB_CLIENT_SECRET; do
+  grep -q "^$key=." "$ENV_FILE" || google_missing+=("$key")
+done
+if [ ${#google_missing[@]} -gt 0 ]; then
+  echo "Google OAuth not set yet (${google_missing[*]}). Demo still works via mocks/.ics."
+  echo "When ready: fill them in server/.env (README: Connect Google Calendar and Gmail), then make google-check && make server && make sim."
+else
+  echo "Google OAuth vars set"
+fi
+
 printf '\nDone. Next: make server   (then make sim or make phone)\n'
