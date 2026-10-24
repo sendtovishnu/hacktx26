@@ -2,19 +2,20 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Google Sign-In: paste the iOS client ID from Person A here. -->
+	<!-- Google Sign-In IDs come from server/.env via `make sim` / `make phone` (see README).
+	     Empty means the Connect Google button explains it is not set up. -->
 	<key>GIDClientID</key>
-	<string></string>
-	<!-- Google Sign-In: the server's Web client ID, so sign-in returns a serverAuthCode. -->
+	<string>$(GOOGLE_IOS_CLIENT_ID)</string>
+	<!-- The server's Web client ID, so sign-in returns a serverAuthCode. -->
 	<key>GIDServerClientID</key>
-	<string></string>
+	<string>$(GOOGLE_WEB_CLIENT_ID)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<!-- The iOS client ID reversed, e.g. com.googleusercontent.apps.1234-abcd -->
-				<string>com.googleusercontent.apps.REPLACE_ME</string>
+				<string>$(GOOGLE_IOS_URL_SCHEME)</string>
 			</array>
 		</dict>
 	</array>
@@ -34,5 +35,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Twin connects to your team's demo server on this Wi-Fi network.</string>
+	<!-- Set at build time by `make sim` / `make phone`. Empty means start in mock mode. -->
+	<key>TwinServerURL</key>
+	<string>$(TWIN_SERVER_URL)</string>
 </dict>
 </plist>

@@ -220,7 +220,7 @@ struct AccountView: View {
         let clientID = Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String ?? ""
         let serverClientID = Bundle.main.object(forInfoDictionaryKey: "GIDServerClientID") as? String ?? ""
         guard !clientID.isEmpty, !serverClientID.isEmpty else {
-            throw APIError.notConfigured("Add GIDClientID (iOS client) and GIDServerClientID (Web client) to Twin-Info.plist, and the reversed iOS client ID as a URL scheme.")
+            throw APIError.notConfigured("Google sign-in isn't set up in this build. Add GOOGLE_IOS_CLIENT_ID and GOOGLE_WEB_CLIENT_ID to server/.env, then rebuild with make sim or make phone.")
         }
         guard let presenter = topViewController() else {
             throw APIError.notConfigured("Could not find a screen to show Google sign-in on.")

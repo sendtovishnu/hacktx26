@@ -11,9 +11,10 @@ import {
 import { getEmailsFor, getEventsFor } from '../mocks.js';
 import type { CalendarEvent, EmailSnippet } from '../types.js';
 
+// Matches what the iOS app requests (AccountView.swift); used as a label when Google omits scope.
 const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
-  'https://www.googleapis.com/auth/gmail.metadata',
+  'https://www.googleapis.com/auth/gmail.readonly',
 ].join(' ');
 
 export function googleStatus(): { configured: boolean } {
@@ -33,8 +34,35 @@ function oauthClient() {
   return new google.auth.OAuth2(
     process.env.GOOGLE_WEB_CLIENT_ID,
     process.env.GOOGLE_WEB_CLIENT_SECRET,
-    process.env.GOOGLE_OAUTH_REDIRECT_URI ?? 'postmessage',
   );
+}
+
+/**
+ * Exchanges the iOS app's serverAuthCode. Google wants redirect_uri present but
+ * empty for codes from a native sign-in SDK; googleapis drops empty values, so
+ * this one request goes direct. GOOGLE_OAUTH_REDIRECT_URI overrides it if needed.
+ */
+async function exchangeServerAuthCode(code: string): Promise<{
+  access_token?: string;
+  refresh_token?: string;
+  scope?: string;
+}> {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      code,
+      client_id: process.env.GOOGLE_WEB_CLIENT_ID ?? '',
+      client_secret: process.env.GOOGLE_WEB_CLIENT_SECRET ?? '',
+      redirect_uri: process.env.GOOGLE_OAUTH_REDIRECT_URI ?? '',
+      grant_type: 'authorization_code',
+    }),
+  });
+  const body = (await res.json()) as Record<string, string>;
+  if (!res.ok) {
+    throw new Error(`Google token exchange failed: ${body.error ?? res.status} ${body.error_description ?? ''}`.trim());
+  }
+  return body;
 }
 
 /** True when a stored connection has a real access token (not a stub). */
@@ -69,8 +97,7 @@ export async function exchangeGoogleAuth(
     throw new Error('Missing authorization code for Google exchange');
   }
 
-  const client = oauthClient();
-  const { tokens } = await client.getToken(code);
+  const tokens = await exchangeServerAuthCode(code);
   if (useDatabase()) {
     await upsertConnection({
       userId,

@@ -1,0 +1,15 @@
+# Copy to local.mk (git-ignored) and fill in. Only needed for `make phone`.
+
+# Your Apple Developer team ID: Xcode > Settings > Accounts > your team, or
+#   security find-identity -v -p codesigning   (the 10-character ID in parentheses)
+TEAM_ID =
+
+# A bundle ID unique to you; the shared one belongs to another team.
+BUNDLE_ID = com.yourname.twin
+
+# Your iPhone's name or UDID from `make devices`.
+DEVICE =
+
+# Optional: where the phone finds the server. Defaults to this Mac's Wi-Fi IP.
+# Use the https URL from `make tunnel` when the phone is not on your Wi-Fi.
+# SERVER_URL = https://example.trycloudflare.com
