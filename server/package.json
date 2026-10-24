@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "db:reset": "echo 'db:reset placeholder — wire SQL migrations later'"
+    "db:reset": "tsx src/db/reset.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
