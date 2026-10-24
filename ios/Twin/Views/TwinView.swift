@@ -20,8 +20,8 @@ struct TwinView: View {
                 if let signals {
                     readCard(signals)
                     sharingCard(signals)
-                    if let nudgesSent {
-                        confirmation(nudgesSent)
+                    if nudgesSent != nil {
+                        reassurance
                     }
                 }
 
@@ -130,13 +130,12 @@ struct TwinView: View {
         }
     }
 
-    private func confirmation(_ count: Int) -> some View {
+    /// Deliberately says nothing about whether anyone was nudged, so the surprise stays a surprise.
+    private var reassurance: some View {
         HStack(spacing: 10) {
-            Image(systemName: count == 0 ? "moon.stars.fill" : "heart.fill")
+            Image(systemName: "sparkles")
                 .foregroundStyle(Theme.sageInk)
-            Text(count == 0
-                 ? "No nudges sent. Your twin is just keeping you company."
-                 : "Your twin quietly let \(count) \(count == 1 ? "friend" : "friends") know.")
+            Text("Got it. Your twin is keeping you company this week.")
                 .font(Theme.semibold(14))
                 .foregroundStyle(Theme.sageInk)
         }

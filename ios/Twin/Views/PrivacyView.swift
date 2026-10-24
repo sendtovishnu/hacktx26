@@ -53,17 +53,24 @@ struct PrivacyView: View {
                 .card()
 
                 VStack(alignment: .leading, spacing: 12) {
-                    Eyebrow(text: "Nudge log")
-                    let log = info?.nudgeLog ?? []
-                    if log.isEmpty {
-                        Text("Your twin hasn't nudged anyone yet.").font(Theme.body()).foregroundStyle(Theme.ink2)
+                    Eyebrow(text: "Times friends showed up")
+                    // Only nudges a friend has acted on. Pending ones stay hidden so the surprise isn't spoiled.
+                    let revealed = (info?.nudgeLog ?? []).filter { $0.status == "acted" }
+                    if revealed.isEmpty {
+                        Text("Nothing here yet. When a friend shows up for you, you'll see how it happened.")
+                            .font(Theme.body())
+                            .foregroundStyle(Theme.ink2)
                     } else {
-                        ForEach(log) { nudge in
+                        ForEach(revealed) { nudge in
                             HStack(alignment: .top, spacing: 12) {
                                 Avatar(name: name(for: nudge.toFriendId), size: 34)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Told \(name(for: nudge.toFriendId))").font(Theme.bodyStrong(14)).foregroundStyle(Theme.ink)
-                                    Text("\u{201C}\(nudge.message)\u{201D}").font(Theme.small(12)).foregroundStyle(Theme.ink2)
+                                    Text("\(name(for: nudge.toFriendId)) showed up for you")
+                                        .font(Theme.bodyStrong(14))
+                                        .foregroundStyle(Theme.ink)
+                                    Text("Your twin shared: \u{201C}\(nudge.message)\u{201D}")
+                                        .font(Theme.small(12))
+                                        .foregroundStyle(Theme.ink2)
                                     Text("Because you could use support and they're your \(nudge.contextLevel) friend")
                                         .font(Theme.small(11))
                                         .foregroundStyle(Theme.ink3)
@@ -73,6 +80,9 @@ struct PrivacyView: View {
                             }
                         }
                     }
+                    Text("Your twin never tells you who it nudged until they act, so a surprise stays a surprise.")
+                        .font(Theme.small(12))
+                        .foregroundStyle(Theme.ink3)
                 }
                 .card()
 

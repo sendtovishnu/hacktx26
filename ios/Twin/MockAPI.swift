@@ -198,7 +198,7 @@ final class MockAPI: TwinAPI {
         return PrivacyInfo(
             sources: .init(google: googleConnected, ics: icsConnected),
             friends: friendEntries(of: currentUserId),
-            nudgeLog: nudgeList.filter { $0.fromUser.id == currentUserId }
+            nudgeLog: nudgeList.filter { $0.fromUser.id == currentUserId && $0.status == "acted" }
         )
     }
 
