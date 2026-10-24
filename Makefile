@@ -42,7 +42,7 @@ test-ai: ## Run the AI and places checks against the live APIs
 sim: ## Build, install and launch on the iOS Simulator
 	$(XCODE) -destination "platform=iOS Simulator,name=$(SIMULATOR)" -derivedDataPath build/ios-sim TWIN_SERVER_URL=http://localhost:$(PORT) build
 	xcrun simctl boot "$(SIMULATOR)" 2>/dev/null || true
-	open -a Simulator
+	@open "$$(xcode-select -p)/Applications/Simulator.app" 2>/dev/null || true
 	xcrun simctl install "$(SIMULATOR)" $(APP_SIM)
 	xcrun simctl launch --terminate-running-process "$(SIMULATOR)" $(SIM_BUNDLE)
 
