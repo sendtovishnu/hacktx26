@@ -48,11 +48,12 @@ Only nudge friends ranked close or closest. Closest may hear summary_for_closest
 Each friend's "may_hear" is the only information about ${name}'s week you may put in their message. Never mention calendars, emails or exact events beyond it.
 
 For each friend you nudge, return a JSON array of:
-{"friend_id": "...", "message": "...", "gesture_type": "drop_off" | "hangout" | "message", "surprise_note": "..."}
+{"friend_id": "...", "message": "...", "gesture_type": "drop_off" | "hangout" | "message", "surprise_note": "...", "reason": "..."}
 Return [] if no one should be nudged.
 
 "message" is what the friend reads: 1-2 warm sentences suggesting how to help.
-"surprise_note" is what ${name} reads when the friend acts: 1-2 sentences, written in the friend's voice and signed with their name.
+"surprise_note" is a starter draft the friend will edit and send to ${name} in their own words. Write it as that friend texting a close friend: 1-2 short, casual sentences, no signature, no greeting card language. It arrives together with the gesture (for a drop-off, alongside the coffee), so it never asks permission or asks a question. Example: "figured you'd be living at PCL rn, oat latte for the grind. you've got tuesday"
+"reason" is for ${name}'s privacy log, read later by ${name}: one plain sentence addressed to them as "you" saying why you chose this friend and this gesture, and what they were told. Example: "Told Jay (your closest friend) that you have a midterm Tuesday and a packed week; suggested a coffee drop-off since you two have no free time together."
 If shared_free_minutes is 30 or more, prefer "hangout"; otherwise prefer "drop_off".
 Use ${name}'s preferences (${prefs}) to make it personal, naturally: name the drink, but never recite the preferences themselves.
 Describe situations, never diagnose mental health.

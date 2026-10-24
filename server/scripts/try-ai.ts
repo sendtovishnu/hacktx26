@@ -37,6 +37,8 @@ const friends: TwinFriendInput[] = [
 const decisions = await timed('decideNudges (Muse Spark)', () => decideNudges(maya, signals, friends));
 console.log(decisions);
 check(decisions.length === 1 && decisions[0].friendId === 'u_jay', 'one decision for Jay, none for Priya');
+check(decisions.every((d) => d.reason.length > 0), 'every decision has a reason');
+check(decisions.every((d) => !/[-—]\s*Jay\s*$/.test(d.surpriseNote)), 'surprise note is an unsigned draft');
 
 const fine = await decideNudges(maya, { ...signals, supportLevel: 'doing_fine' }, friends);
 check(fine.length === 0, 'no nudges when doing_fine');
