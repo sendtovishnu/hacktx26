@@ -124,6 +124,21 @@ final class AppState: ObservableObject {
         isSignedIn = true
     }
 
+    /// Real Google sign-in: creates or finds a Twin user from the Google account.
+    func signInWithGoogle(serverAuthCode: String) async throws {
+        let result = try await api.continueWithGoogle(code: serverAuthCode)
+        await switchUser(to: result.user.id)
+        me = result.user
+        if !users.contains(where: { $0.id == result.user.id }) {
+            users.append(result.user)
+        }
+        if result.created {
+            hasCompletedSetup = false
+        }
+        isSignedIn = true
+        lastError = nil
+    }
+
     func signOut() {
         isSignedIn = false
     }

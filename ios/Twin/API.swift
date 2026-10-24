@@ -13,6 +13,8 @@ protocol TwinAPI: AnyObject {
     func setTier(friendId: String, tier: Tier) async throws -> FriendEntry
     func addFriend(friendId: String, tier: Tier) async throws -> FriendEntry
     func exchangeGoogleCode(_ code: String) async throws
+    /// Sign in / create account with a Google serverAuthCode; returns the Twin user.
+    func continueWithGoogle(code: String) async throws -> GoogleContinueResult
     func ingestGoogle() async throws -> IngestResult
     func ingestICS(data: Data, filename: String) async throws -> IngestResult
     func refreshTwin(checkin: String?) async throws -> TwinRefreshResult
@@ -116,8 +118,27 @@ final class APIClient: TwinAPI {
     }
 
     func exchangeGoogleCode(_ code: String) async throws {
-        struct Body: Encodable { let serverAuthCode: String }
-        let _: Ignored = try await call("POST", "api/auth/google/exchange", body: Body(serverAuthCode: code))
+        struct Body: Encodable {
+            let serverAuthCode: String
+            let flow: String
+        }
+        let _: Ignored = try await call(
+            "POST",
+            "api/auth/google/exchange",
+            body: Body(serverAuthCode: code, flow: "ios")
+        )
+    }
+
+    func continueWithGoogle(code: String) async throws -> GoogleContinueResult {
+        struct Body: Encodable {
+            let serverAuthCode: String
+            let flow: String
+        }
+        return try await call(
+            "POST",
+            "api/auth/google/continue",
+            body: Body(serverAuthCode: code, flow: "ios")
+        )
     }
 
     func ingestGoogle() async throws -> IngestResult {

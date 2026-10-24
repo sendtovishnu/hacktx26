@@ -160,6 +160,15 @@ struct IngestResult: Codable {
     var emails: Int?
 }
 
+struct GoogleContinueResult: Codable {
+    var connected: Bool
+    var created: Bool
+    var user: User
+    var events: Int?
+    var emails: Int?
+    var source: String?
+}
+
 struct PrivacyInfo: Codable {
     struct Sources: Codable {
         var google: Bool

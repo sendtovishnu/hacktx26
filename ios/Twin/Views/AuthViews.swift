@@ -1,6 +1,10 @@
 import SwiftUI
+import UIKit
+#if canImport(GoogleSignIn)
+import GoogleSignIn
+#endif
 
-// Welcome, sign-in and first-run setup. Sign-in is a demo: no real accounts yet.
+// Welcome, sign-in and first-run setup. Google creates a real Twin user on the server.
 
 struct WelcomeView: View {
     let onStart: () -> Void
@@ -57,9 +61,15 @@ struct SignInView: View {
     @EnvironmentObject private var state: AppState
     @State private var email = ""
     @State private var working = false
+    @State private var googleWorking = false
+    @State private var googleError: String?
     @FocusState private var emailFocused: Bool
 
     private let demoAccounts = [("Maya", "maya@example.com"), ("Jay", "jay@example.com"), ("Priya", "priya@example.com")]
+    private let googleScopes = [
+        "https://www.googleapis.com/auth/calendar.readonly",
+        "https://www.googleapis.com/auth/gmail.readonly",
+    ]
 
     var body: some View {
         ScrollView {
@@ -90,9 +100,10 @@ struct SignInView: View {
                     .buttonStyle(AuthButtonStyle(background: Theme.ink, foreground: Theme.paper))
 
                     Button {
-                        Task { await signIn() }
+                        Task { await signInWithGoogle() }
                     } label: {
                         HStack(spacing: 10) {
+                            if googleWorking { ProgressView() }
                             Text("G")
                                 .font(.system(size: 18, weight: .bold, design: .rounded))
                                 .foregroundStyle(Theme.accent)
@@ -100,6 +111,9 @@ struct SignInView: View {
                         }
                     }
                     .buttonStyle(AuthButtonStyle(background: Theme.card, foreground: Theme.ink, border: Theme.linen))
+                    .disabled(googleWorking)
+
+                    ErrorText(message: googleError)
                 }
 
                 HStack(spacing: 12) {
@@ -182,6 +196,66 @@ struct SignInView: View {
         working = true
         defer { working = false }
         await state.signIn(email: email)
+    }
+
+    /// Opens Google auth, then creates or signs in a Twin user on the server.
+    private func signInWithGoogle() async {
+        googleWorking = true
+        googleError = nil
+        defer { googleWorking = false }
+        do {
+            if state.useMockAPI {
+                try await state.signInWithGoogle(serverAuthCode: "mock-code")
+            } else {
+                let code = try await googleServerAuthCode()
+                try await state.signInWithGoogle(serverAuthCode: code)
+            }
+        } catch {
+            googleError = error.localizedDescription
+        }
+    }
+
+    private func googleServerAuthCode() async throws -> String {
+        #if canImport(GoogleSignIn)
+        let clientID = Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String ?? ""
+        let serverClientID = Bundle.main.object(forInfoDictionaryKey: "GIDServerClientID") as? String ?? ""
+        guard !clientID.isEmpty, !serverClientID.isEmpty else {
+            throw APIError.notConfigured(
+                "Google sign-in isn't set up in this build. Add GOOGLE_IOS_CLIENT_ID and GOOGLE_WEB_CLIENT_ID to server/.env, run make google-check, then rebuild with make sim or make phone."
+            )
+        }
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(
+            clientID: clientID,
+            serverClientID: serverClientID
+        )
+        guard let presenter = topViewController() else {
+            throw APIError.notConfigured("Could not find a screen to show Google sign-in on.")
+        }
+        let result = try await GIDSignIn.sharedInstance.signIn(
+            withPresenting: presenter,
+            hint: nil,
+            additionalScopes: googleScopes
+        )
+        guard let code = result.serverAuthCode, !code.isEmpty else {
+            throw APIError.notConfigured("Google did not return a server auth code. Check GIDServerClientID.")
+        }
+        return code
+        #else
+        throw APIError.notConfigured(
+            "Add the GoogleSignIn package first: File > Add Package Dependencies > https://github.com/google/GoogleSignIn-iOS (product GoogleSignIn)."
+        )
+        #endif
+    }
+
+    private func topViewController() -> UIViewController? {
+        let scene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
+        var top = scene?.windows.first { $0.isKeyWindow }?.rootViewController
+        while let presented = top?.presentedViewController {
+            top = presented
+        }
+        return top
     }
 }
 

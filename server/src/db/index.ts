@@ -80,6 +80,57 @@ export async function getUser(id: string): Promise<User | null> {
   return rows[0] ? mapUser(rows[0]) : null;
 }
 
+export async function getUserByEmail(email: string): Promise<User | null> {
+  const { rows } = await query<UserRow>(
+    'SELECT * FROM users WHERE lower(email) = lower($1)',
+    [email],
+  );
+  return rows[0] ? mapUser(rows[0]) : null;
+}
+
+/**
+ * Find or create a user from a Google profile.
+ * Reuses an existing row when the email already exists (e.g. seeded demo users).
+ */
+export async function upsertGoogleUser(profile: {
+  googleSub: string;
+  email: string;
+  name: string;
+}): Promise<{ user: User; created: boolean }> {
+  const email = profile.email.trim();
+  const existing = await getUserByEmail(email);
+  if (existing) {
+    if (profile.name && profile.name !== existing.name) {
+      await query('UPDATE users SET name = $2 WHERE id = $1', [existing.id, profile.name]);
+      const updated = await getUser(existing.id);
+      return { user: updated ?? existing, created: false };
+    }
+    return { user: existing, created: false };
+  }
+
+  const id = `u_${profile.googleSub}`;
+  await query(
+    `INSERT INTO users (
+       id, name, email, home_location, preferences, surprise_opt_in, paused
+     ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7)
+     ON CONFLICT (id) DO UPDATE SET
+       name = EXCLUDED.name,
+       email = EXCLUDED.email`,
+    [
+      id,
+      profile.name.trim() || email.split('@')[0] || 'Friend',
+      email,
+      '',
+      JSON.stringify({ likes: 'company' }),
+      true,
+      false,
+    ],
+  );
+  const user = await getUser(id);
+  if (!user) throw new Error('Failed to create Google user');
+  return { user, created: true };
+}
+
 export async function getFriends(userId: string): Promise<FriendEntry[]> {
   const { rows } = await query<FriendshipRow>(
     `SELECT f.friend_id, f.tier, u.id, u.name, u.email, u.home_location,

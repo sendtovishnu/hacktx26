@@ -11,8 +11,11 @@ import {
 import { getEmailsFor, getEventsFor } from '../mocks.js';
 import type { CalendarEvent, EmailSnippet } from '../types.js';
 
-// Matches what the iOS app requests (AccountView.swift); used as a label when Google omits scope.
+// Calendar + Gmail for the twin, plus profile scopes so Continue with Google can create a user.
 const GOOGLE_SCOPES = [
+  'openid',
+  'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/userinfo.profile',
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/gmail.readonly',
 ].join(' ');
@@ -80,8 +83,11 @@ async function exchangeAuthCode(
   return body;
 }
 
-/** Browser sign-in URL. `state` carries the demo user id (u_maya / u_jay / u_priya). */
-export function getGoogleAuthUrl(userId: string): string {
+/**
+ * Browser sign-in URL.
+ * `state` is `signup` for Continue with Google, or a demo user id (u_maya / …).
+ */
+export function getGoogleAuthUrl(state: string = 'signup'): string {
   if (!googleStatus().configured) {
     throw new Error('GOOGLE_WEB_CLIENT_ID / GOOGLE_WEB_CLIENT_SECRET are not set');
   }
@@ -94,9 +100,55 @@ export function getGoogleAuthUrl(userId: string): string {
     access_type: 'offline',
     prompt: 'consent',
     scope: SCOPE_LIST,
-    state: userId,
+    state,
     include_granted_scopes: true,
   });
+}
+
+export type GoogleTokenSet = {
+  access_token?: string;
+  refresh_token?: string;
+  scope?: string;
+};
+
+export type GoogleProfile = {
+  googleSub: string;
+  email: string;
+  name: string;
+};
+
+/** Exchange a browser auth code and return raw tokens (caller decides which user to attach). */
+export async function exchangeWebCode(code: string): Promise<GoogleTokenSet> {
+  if (!code?.trim()) throw new Error('Missing authorization code for Google exchange');
+  return exchangeAuthCode(code, webRedirectUri());
+}
+
+/** Exchange an iOS serverAuthCode (empty redirect_uri). */
+export async function exchangeIosCode(code: string): Promise<GoogleTokenSet> {
+  if (!code?.trim()) throw new Error('Missing authorization code for Google exchange');
+  return exchangeAuthCode(code, '');
+}
+
+export async function fetchGoogleProfile(accessToken: string): Promise<GoogleProfile> {
+  const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const body = (await res.json()) as {
+    id?: string;
+    email?: string;
+    name?: string;
+    error?: { message?: string };
+  };
+  if (!res.ok || !body.id || !body.email) {
+    throw new Error(
+      `Could not read Google profile: ${body.error?.message ?? res.status}`,
+    );
+  }
+  return {
+    googleSub: body.id,
+    email: body.email,
+    name: body.name?.trim() || body.email.split('@')[0] || 'Friend',
+  };
 }
 
 /** True when a stored connection has a real access token (not a stub). */
@@ -151,18 +203,17 @@ export async function exchangeGoogleAuth(
   return { connected: true };
 }
 
-/** Exchange a browser OAuth code (full redirect URI) and store tokens. */
+/** Exchange a browser OAuth code (full redirect URI) and store tokens for a known user. */
 export async function exchangeGoogleAuthWeb(
   userId: string,
   code: string,
 ): Promise<{ connected: true }> {
-  if (!code?.trim()) {
-    throw new Error('Missing authorization code for Google exchange');
-  }
-  const tokens = await exchangeAuthCode(code, webRedirectUri());
+  const tokens = await exchangeWebCode(code);
   await storeGoogleTokens(userId, tokens);
   return { connected: true };
 }
+
+export { storeGoogleTokens };
 
 function isVEvent(value: CalendarComponent): value is VEvent {
   return value.type === 'VEVENT';

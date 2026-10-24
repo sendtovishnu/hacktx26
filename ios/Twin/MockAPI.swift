@@ -125,6 +125,37 @@ final class MockAPI: TwinAPI {
         googleConnected = true
     }
 
+    func continueWithGoogle(code: String) async throws -> GoogleContinueResult {
+        await delay()
+        googleConnected = true
+        // Simulate a brand-new Google account (not one of the seeded demos).
+        let id = "u_google_\(abs(code.hashValue))"
+        let existing = allUsers.first { $0.id == id }
+        let created = existing == nil
+        let user = existing ?? User(
+            id: id,
+            name: "Google Friend",
+            email: "\(id)@gmail.com",
+            homeLocation: "Austin, TX",
+            preferences: Preferences(coffeeOrder: nil, likes: "company"),
+            surpriseOptIn: true,
+            paused: false,
+            photoUrl: nil
+        )
+        if created {
+            allUsers.append(user)
+        }
+        currentUserId = user.id
+        return GoogleContinueResult(
+            connected: true,
+            created: created,
+            user: user,
+            events: 14,
+            emails: 23,
+            source: "mock"
+        )
+    }
+
     func ingestGoogle() async throws -> IngestResult {
         await delay()
         googleConnected = true

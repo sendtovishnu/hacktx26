@@ -222,6 +222,10 @@ struct AccountView: View {
         guard !clientID.isEmpty, !serverClientID.isEmpty else {
             throw APIError.notConfigured("Google sign-in isn't set up in this build. Add GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID, and GOOGLE_WEB_CLIENT_SECRET to server/.env (see README), run make google-check, then rebuild with make sim or make phone.")
         }
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(
+            clientID: clientID,
+            serverClientID: serverClientID
+        )
         guard let presenter = topViewController() else {
             throw APIError.notConfigured("Could not find a screen to show Google sign-in on.")
         }
