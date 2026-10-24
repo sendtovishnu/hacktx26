@@ -43,8 +43,11 @@ final class AppState: ObservableObject {
     init() {
         let defaults = UserDefaults.standard
         let userId = defaults.string(forKey: "demoUserId") ?? "u_maya"
-        let useMock = defaults.object(forKey: "useMockAPI") as? Bool ?? true
-        let url = defaults.string(forKey: "serverURL") ?? "http://localhost:3000"
+        // A server URL baked in by `make sim` / `make phone` makes a fresh install use the real server.
+        let builtInURL = (Bundle.main.object(forInfoDictionaryKey: "TwinServerURL") as? String)
+            .flatMap { $0.isEmpty ? nil : $0 }
+        let useMock = defaults.object(forKey: "useMockAPI") as? Bool ?? (builtInURL == nil)
+        let url = defaults.string(forKey: "serverURL") ?? builtInURL ?? "http://localhost:3000"
         demoUserId = userId
         useMockAPI = useMock
         serverURL = url

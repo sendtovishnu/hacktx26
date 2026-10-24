@@ -34,5 +34,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Twin connects to your team's demo server on this Wi-Fi network.</string>
+	<!-- Set at build time by `make sim` / `make phone`. Empty means start in mock mode. -->
+	<key>TwinServerURL</key>
+	<string>$(TWIN_SERVER_URL)</string>
 </dict>
 </plist>
