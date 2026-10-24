@@ -9,7 +9,16 @@ PORT       ?= 3000
 LAN_IP     := $(shell ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)
 SERVER_URL ?= http://$(LAN_IP):$(PORT)
 
-XCODE      := xcodebuild -project ios/Twin.xcodeproj -scheme Twin -configuration Debug -quiet
+# Google Sign-In IDs are read from server/.env, so there is one place to paste them.
+env_value  = $(shell sed -n 's/^$(1)=//p' server/.env 2>/dev/null)
+GOOGLE_IOS_CLIENT_ID ?= $(call env_value,GOOGLE_IOS_CLIENT_ID)
+GOOGLE_WEB_CLIENT_ID ?= $(call env_value,GOOGLE_WEB_CLIENT_ID)
+# 1234-abcd.apps.googleusercontent.com -> com.googleusercontent.apps.1234-abcd
+GOOGLE_IOS_URL_SCHEME := $(if $(GOOGLE_IOS_CLIENT_ID),com.googleusercontent.apps.$(GOOGLE_IOS_CLIENT_ID:.apps.googleusercontent.com=))
+
+XCODE      := xcodebuild -project ios/Twin.xcodeproj -scheme Twin -configuration Debug -quiet \
+              GOOGLE_IOS_CLIENT_ID=$(GOOGLE_IOS_CLIENT_ID) GOOGLE_WEB_CLIENT_ID=$(GOOGLE_WEB_CLIENT_ID) \
+              GOOGLE_IOS_URL_SCHEME=$(GOOGLE_IOS_URL_SCHEME)
 APP_DEVICE := build/ios-device/Build/Products/Debug-iphoneos/Twin.app
 APP_SIM    := build/ios-sim/Build/Products/Debug-iphonesimulator/Twin.app
 SIM_BUNDLE := com.sendtovishnu.hacktx26.twin

@@ -45,6 +45,26 @@ The app is built to talk to this Mac's Wi-Fi address (`make ip`), so keep the ph
 
 The first launch asks for Local Network access: allow it. To point an installed app somewhere else without rebuilding, use Privacy > Developer in the app.
 
+### Connect Google Calendar and Gmail (optional)
+
+The demo runs without this: seeded data or an `.ics` upload stands in. To turn on **Account > Connect** in the app, someone on the team creates these once at [console.cloud.google.com](https://console.cloud.google.com):
+
+1. Create a project, then enable the **Google Calendar API** and **Gmail API**.
+2. Set up the OAuth consent screen as External, leave it in **testing**, add the `calendar.readonly` and `gmail.readonly` scopes, and add each teammate's Google account as a **test user**.
+3. Create an OAuth client of type **iOS**, using the bundle ID you build with (`BUNDLE_ID` from `local.mk` for a phone, `com.sendtovishnu.hacktx26.twin` for the Simulator).
+4. Create an OAuth client of type **Web application**. It needs no redirect URIs.
+5. Put them in `server/.env` (share these privately, never in git):
+
+   ```
+   GOOGLE_IOS_CLIENT_ID=…apps.googleusercontent.com
+   GOOGLE_WEB_CLIENT_ID=…apps.googleusercontent.com
+   GOOGLE_WEB_CLIENT_SECRET=…
+   ```
+
+6. Restart `make server`, then rebuild with `make sim` or `make phone`, which copy the client IDs into the app.
+
+Because the app is unverified, Google shows a warning on sign-in: test users tap **Advanced > Continue**.
+
 ## Branches
 
 | Branch | Owner | Scope |
