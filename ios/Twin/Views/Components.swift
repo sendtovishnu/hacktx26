@@ -86,34 +86,45 @@ struct ErrorText: View {
 struct PlaceDetails: View {
     let place: Place
 
+    private var details: String {
+        var parts: [String] = []
+        if let rating = place.rating { parts.append(String(format: "%.1f stars", rating)) }
+        if let street = place.address.split(separator: ",").first { parts.append(String(street)) }
+        return parts.joined(separator: " · ")
+    }
+
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "mappin.and.ellipse")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Theme.ember)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(place.name)
-                    .font(Theme.bodyStrong(14))
-                    .foregroundStyle(Theme.ink)
-                HStack(spacing: 4) {
-                    Text(place.address).lineLimit(1)
-                    if let rating = place.rating {
-                        Text("· \(String(format: "%.1f", rating)) stars")
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(place.name)
+                        .font(Theme.bodyStrong(14))
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                    if place.openNow == true {
+                        Text("Open")
+                            .font(Theme.semibold(11))
+                            .foregroundStyle(Theme.sageInk)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(Theme.sageLight, in: Capsule())
                     }
                 }
-                .font(Theme.small(12))
-                .foregroundStyle(Theme.ink2)
+                Text(details)
+                    .font(Theme.small(12))
+                    .foregroundStyle(Theme.ink2)
+                    .lineLimit(1)
             }
             Spacer(minLength: 4)
-            if place.openNow == true {
-                Pill(text: "Open now", tone: .sage)
-            }
             if let link = place.mapsLink {
                 Link(destination: link) {
                     Image(systemName: "map.fill")
                         .font(.system(size: 14))
                         .foregroundStyle(Theme.ember)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 34, height: 34)
                         .background(Theme.blush, in: Circle())
                 }
                 .accessibilityLabel("Open in Maps")

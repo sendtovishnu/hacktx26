@@ -69,6 +69,9 @@ private struct CircleOfPeople: View {
     let me: String
     let friends: [FriendEntry]
 
+    /// Spots around the rings, chosen to stay clear of the tier labels in the upper right.
+    private static let angles: [Double] = [200, 40, 140, 250, 100, 170]
+
     private func radius(for tier: Tier) -> CGFloat {
         switch tier {
         case .closest: return 52
@@ -87,7 +90,7 @@ private struct CircleOfPeople: View {
             Avatar(name: me, size: 46)
 
             ForEach(Array(friends.enumerated()), id: \.element.id) { index, entry in
-                let angle = Angle.degrees(-140 + Double(index) * 115)
+                let angle = Angle.degrees(Self.angles[index % Self.angles.count])
                 let r = radius(for: entry.tier)
                 Avatar(name: entry.friend.name, size: entry.tier == .closest ? 34 : 30)
                     .offset(x: r * CGFloat(cos(angle.radians)), y: r * CGFloat(sin(angle.radians)))

@@ -28,8 +28,9 @@ final class AppState: ObservableObject {
     /// Screens reload whenever this changes (user switch or new connection settings).
     @Published private(set) var reloadToken = 0
 
-    private var seenNudgeIds: Set<String> = []
-    private var seenSurpriseIds: Set<String> = []
+    // Remembered per demo user, so switching users on one phone still surfaces new surprises.
+    private var seenNudgeIdsByUser: [String: Set<String>] = [:]
+    private var seenSurpriseIdsByUser: [String: Set<String>] = [:]
     private var hasLoadedOnce = false
     private var pollTask: Task<Void, Never>?
 
@@ -80,6 +81,8 @@ final class AppState: ObservableObject {
         demoUserId = id
         api.currentUserId = id
         resetFeed()
+        // A user switch is not a fresh launch: anything this user hasn't seen yet is news.
+        hasLoadedOnce = true
         reloadToken += 1
         await reloadMe()
         await poll()
@@ -100,8 +103,6 @@ final class AppState: ObservableObject {
     private func resetFeed() {
         nudges = []
         surprises = []
-        seenNudgeIds = []
-        seenSurpriseIds = []
         hasLoadedOnce = false
     }
 
@@ -128,13 +129,16 @@ final class AppState: ObservableObject {
     }
 
     private func handle(newNudges: [Nudge], newSurprises: [Gesture]) {
-        let freshNudges = newNudges.filter { !seenNudgeIds.contains($0.id) }
-        let freshSurprises = newSurprises.filter { !seenSurpriseIds.contains($0.id) }
+        let user = demoUserId
+        let seenNudges = seenNudgeIdsByUser[user, default: []]
+        let seenSurprises = seenSurpriseIdsByUser[user, default: []]
+        let freshNudges = newNudges.filter { !seenNudges.contains($0.id) }
+        let freshSurprises = newSurprises.filter { !seenSurprises.contains($0.id) }
 
         nudges = newNudges.sorted { $0.createdAt > $1.createdAt }
         surprises = newSurprises.sorted { $0.deliveredAt > $1.deliveredAt }
-        seenNudgeIds.formUnion(newNudges.map(\.id))
-        seenSurpriseIds.formUnion(newSurprises.map(\.id))
+        seenNudgeIdsByUser[user, default: []].formUnion(newNudges.map(\.id))
+        seenSurpriseIdsByUser[user, default: []].formUnion(newSurprises.map(\.id))
 
         // The first load after launch or a user switch is history, not news.
         if hasLoadedOnce {
