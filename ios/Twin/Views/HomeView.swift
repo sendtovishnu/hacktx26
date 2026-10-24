@@ -35,6 +35,7 @@ struct HomeView: View {
     @EnvironmentObject private var state: AppState
     @State private var friends: [FriendEntry] = []
     @State private var selected: FriendEntry?
+    @State private var sheetDetent: PresentationDetent = .medium
     @State private var error: String?
 
     var body: some View {
@@ -66,15 +67,16 @@ struct HomeView: View {
         .task(id: state.reloadToken) { await load() }
         .onAppear { Task { await load() } }
         .refreshable { await load() }
+        .onChange(of: selected) { _, _ in sheetDetent = .medium }
         .sheet(item: $selected) { entry in
-            FriendProfileSheet(entry: entry) { updated in
+            FriendProfileSheet(entry: entry, onEdit: { sheetDetent = .large }) { updated in
                 if let index = friends.firstIndex(where: { $0.id == updated.id }) {
                     withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                         friends[index] = updated
                     }
                 }
             }
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.medium, .large], selection: $sheetDetent)
             .presentationDragIndicator(.visible)
         }
     }
@@ -265,6 +267,7 @@ struct FriendProfileSheet: View {
     @EnvironmentObject private var state: AppState
     @Environment(\.dismiss) private var dismiss
     let entry: FriendEntry
+    var onEdit: () -> Void = {}
     var onUpdate: (FriendEntry) -> Void
 
     @State private var editing = false
@@ -325,6 +328,7 @@ struct FriendProfileSheet: View {
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 } else {
                     Button("Change circle") {
+                        onEdit()
                         withAnimation { editing = true }
                     }
                     .buttonStyle(SoftButtonStyle(height: 50))
@@ -381,7 +385,8 @@ struct CircleOption: View {
                 Spacer(minLength: 0)
             }
             .padding(14)
-            .background(selected ? Theme.glow : Theme.paper, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(selected ? Theme.glow : Color.white, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: Theme.ink.opacity(selected ? 0 : 0.05), radius: 6, y: 3)
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(selected ? Theme.ember.opacity(0.5) : .clear, lineWidth: 1.5)
