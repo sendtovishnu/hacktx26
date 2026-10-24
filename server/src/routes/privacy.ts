@@ -1,21 +1,41 @@
 import { Router } from 'express';
-import { getFriendsFor } from '../mocks.js';
-import { canShareContext } from '../rules/index.js';
+import {
+  getFriends,
+  hasIcsEvents,
+  listActedNudgesFromUser,
+  listProviders,
+  useDatabase,
+} from '../db/index.js';
+import { getFriendsFor, getNudgesFor } from '../mocks.js';
 import { requireDemoUser, type DemoRequest } from '../middleware.js';
 
 export const privacyRouter = Router();
 
-privacyRouter.get('/privacy', requireDemoUser, (req, res) => {
+privacyRouter.get('/privacy', requireDemoUser, async (req, res) => {
   const user = (req as DemoRequest).demoUser;
-  const friends = getFriendsFor(user.id).map((f) => ({
-    friendId: f.friend.id,
-    tier: f.tier,
-    sharedContext: canShareContext(f.tier),
-  }));
+
+  if (useDatabase()) {
+    const providers = await listProviders(user.id);
+    const friends = await getFriends(user.id);
+    const nudgeLog = await listActedNudgesFromUser(user.id);
+    res.json({
+      sources: {
+        google: providers.includes('google'),
+        ics: providers.includes('ics') || (await hasIcsEvents(user.id)),
+      },
+      friends,
+      nudgeLog,
+    });
+    return;
+  }
+
+  const friends = getFriendsFor(user.id);
+  const nudgeLog = getNudgesFor(user.id).filter(
+    (n) => n.fromUser.id === user.id && n.status === 'acted',
+  );
   res.json({
-    userId: user.id,
-    paused: user.paused,
-    surpriseOptIn: user.surpriseOptIn,
+    sources: { google: false, ics: false },
     friends,
+    nudgeLog,
   });
 });

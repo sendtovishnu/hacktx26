@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Tier, User } from '../types.js';
+import type { EmailSnippet, Tier, User } from '../types.js';
 import { query } from './client.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -102,6 +102,7 @@ export async function seed(): Promise<void> {
   const users = loadJson<User[]>('users.json');
   const friendsMap = loadJson<FriendsMap>('friends.json');
   const mayaEvents = loadJson<MockEvent[]>('events_maya.json');
+  const mayaEmails = loadJson<EmailSnippet[]>('emails_maya.json');
 
   for (const user of users) {
     await query(
@@ -161,8 +162,17 @@ export async function seed(): Promise<void> {
     );
   }
 
+  // Temporary inbox for Maya — twin refresh filters then deletes these.
+  for (const email of mayaEmails) {
+    await query(
+      `INSERT INTO emails (user_id, from_addr, subject, snippet, date)
+       VALUES ($1, $2, $3, $4, $5::timestamptz)`,
+      ['u_maya', email.from, email.subject, email.snippet, email.date],
+    );
+  }
+
   // Do NOT seed nudges / gestures / signals — twin refresh creates those.
   console.log(
-    `Seeded ${users.length} users, friendships from friends.json, ${mayaEvents.length} Maya events, Jay busy blocks for ${jayDay} (America/Chicago).`,
+    `Seeded ${users.length} users, friendships from friends.json, ${mayaEvents.length} Maya events, ${mayaEmails.length} Maya emails, Jay busy blocks for ${jayDay} (America/Chicago).`,
   );
 }

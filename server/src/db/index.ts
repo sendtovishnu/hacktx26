@@ -1,4 +1,16 @@
-import type { FriendEntry, Tier, User } from '../types.js';
+import type {
+  CalendarEvent,
+  EmailSnippet,
+  FriendEntry,
+  Gesture,
+  GestureType,
+  Nudge,
+  Place,
+  Signals,
+  SupportLevel,
+  Tier,
+  User,
+} from '../types.js';
 import { closePool, getPool, query } from './client.js';
 
 export { closePool, getPool, query };
@@ -262,8 +274,60 @@ export async function listEmails(userId: string): Promise<DbEmail[]> {
   return rows.map(mapEmail);
 }
 
+export function toCalendarEvents(events: DbEvent[]): CalendarEvent[] {
+  return events.map((e) => ({
+    title: e.title,
+    start: e.start,
+    end: e.end,
+    location: e.location ?? undefined,
+  }));
+}
+
+export function toEmailSnippets(emails: DbEmail[]): EmailSnippet[] {
+  return emails.map((e) => ({
+    from: e.fromAddr,
+    subject: e.subject,
+    snippet: e.snippet,
+    date: e.date,
+  }));
+}
+
+export async function replaceEmails(
+  userId: string,
+  emails: EmailSnippet[],
+): Promise<DbEmail[]> {
+  await query('DELETE FROM emails WHERE user_id = $1', [userId]);
+  const out: DbEmail[] = [];
+  for (const email of emails) {
+    const { rows } = await query<EmailRow>(
+      `INSERT INTO emails (user_id, from_addr, subject, snippet, date)
+       VALUES ($1, $2, $3, $4, $5::timestamptz)
+       RETURNING id, user_id, from_addr, subject, snippet, date`,
+      [userId, email.from, email.subject, email.snippet, email.date],
+    );
+    if (rows[0]) out.push(mapEmail(rows[0]));
+  }
+  return out;
+}
+
 export async function deleteEmails(userId: string): Promise<void> {
   await query('DELETE FROM emails WHERE user_id = $1', [userId]);
+}
+
+export async function listProviders(userId: string): Promise<string[]> {
+  const { rows } = await query<{ provider: string }>(
+    `SELECT provider FROM connections WHERE user_id = $1`,
+    [userId],
+  );
+  return rows.map((r) => r.provider);
+}
+
+export async function hasIcsEvents(userId: string): Promise<boolean> {
+  const { rows } = await query<{ ok: number }>(
+    `SELECT 1 AS ok FROM events WHERE user_id = $1 AND source = 'ics' LIMIT 1`,
+    [userId],
+  );
+  return rows.length > 0;
 }
 
 export async function upsertConnection(input: {
@@ -350,43 +414,133 @@ export async function insertSignal(input: {
   return rows[0]!.id;
 }
 
-export async function getLatestSignal(userId: string): Promise<{
+export type DbSignal = {
   id: number;
   userId: string;
-  supportLevel: string;
-  stressors: unknown;
+  supportLevel: SupportLevel;
+  stressors: Signals['stressors'];
   busyHours: number;
   likelyLocation: string | null;
   summaryForClosest: string;
   summaryForClose: string;
   createdAt: string;
-} | null> {
-  const { rows } = await query<{
-    id: number;
-    user_id: string;
-    support_level: string;
-    stressors: unknown;
-    busy_hours: number;
-    likely_location: string | null;
-    summary_for_closest: string;
-    summary_for_close: string;
-    created_at: Date | string;
-  }>(
-    `SELECT * FROM signals WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
-    [userId],
-  );
-  const row = rows[0];
-  if (!row) return null;
+};
+
+type SignalRow = {
+  id: number;
+  user_id: string;
+  support_level: string;
+  stressors: unknown;
+  busy_hours: number;
+  likely_location: string | null;
+  summary_for_closest: string;
+  summary_for_close: string;
+  created_at: Date | string;
+};
+
+function parseStressors(value: unknown): Signals['stressors'] {
+  if (typeof value === 'string') {
+    return JSON.parse(value) as Signals['stressors'];
+  }
+  return (value ?? []) as Signals['stressors'];
+}
+
+function mapSignal(row: SignalRow): DbSignal {
   return {
     id: row.id,
     userId: row.user_id,
-    supportLevel: row.support_level,
-    stressors: row.stressors,
+    supportLevel: row.support_level as SupportLevel,
+    stressors: parseStressors(row.stressors),
     busyHours: row.busy_hours,
     likelyLocation: row.likely_location,
     summaryForClosest: row.summary_for_closest,
     summaryForClose: row.summary_for_close,
     createdAt: toIso(row.created_at),
+  };
+}
+
+export function toSignals(row: DbSignal): Signals {
+  return {
+    supportLevel: row.supportLevel,
+    stressors: row.stressors,
+    busyHoursNext3Days: row.busyHours,
+    likelyLocation: row.likelyLocation ?? undefined,
+    summaryForClosest: row.summaryForClosest,
+    summaryForClose: row.summaryForClose,
+  };
+}
+
+export async function getLatestSignal(userId: string): Promise<DbSignal | null> {
+  const { rows } = await query<SignalRow>(
+    `SELECT * FROM signals WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+    [userId],
+  );
+  return rows[0] ? mapSignal(rows[0]) : null;
+}
+
+export async function saveSignals(
+  userId: string,
+  signals: Signals,
+): Promise<DbSignal> {
+  const id = await insertSignal({
+    userId,
+    supportLevel: signals.supportLevel,
+    stressors: signals.stressors,
+    busyHours: signals.busyHoursNext3Days,
+    likelyLocation: signals.likelyLocation ?? null,
+    summaryForClosest: signals.summaryForClosest,
+    summaryForClose: signals.summaryForClose,
+  });
+  const latest = await getLatestSignal(userId);
+  if (!latest || latest.id !== id) {
+    throw new Error('Failed to read back saved signals');
+  }
+  return latest;
+}
+
+type NudgeRow = {
+  id: string;
+  from_user_id: string;
+  to_friend_id: string;
+  message: string;
+  context_level: 'closest' | 'close';
+  status: 'sent' | 'seen' | 'acted';
+  created_at: Date | string;
+};
+
+export type DbNudge = {
+  id: string;
+  fromUserId: string;
+  toFriendId: string;
+  message: string;
+  contextLevel: 'closest' | 'close';
+  status: 'sent' | 'seen' | 'acted';
+  createdAt: string;
+};
+
+function mapNudgeRow(row: NudgeRow): DbNudge {
+  return {
+    id: row.id,
+    fromUserId: row.from_user_id,
+    toFriendId: row.to_friend_id,
+    message: row.message,
+    contextLevel: row.context_level,
+    status: row.status,
+    createdAt: toIso(row.created_at),
+  };
+}
+
+async function hydrateNudge(row: DbNudge): Promise<Nudge | null> {
+  const fromUser = await getUser(row.fromUserId);
+  if (!fromUser) return null;
+  return {
+    id: row.id,
+    fromUser,
+    toFriendId: row.toFriendId,
+    message: row.message,
+    contextLevel: row.contextLevel,
+    status: row.status,
+    createdAt: row.createdAt,
   };
 }
 
@@ -427,40 +581,58 @@ export async function updateNudgeStatus(
   return (rowCount ?? 0) > 0;
 }
 
-export async function listNudgesForUser(userId: string): Promise<
-  Array<{
-    id: string;
-    fromUserId: string;
-    toFriendId: string;
-    message: string;
-    contextLevel: 'closest' | 'close';
-    status: 'sent' | 'seen' | 'acted';
-    createdAt: string;
-  }>
-> {
-  const { rows } = await query<{
-    id: string;
-    from_user_id: string;
-    to_friend_id: string;
-    message: string;
-    context_level: 'closest' | 'close';
-    status: 'sent' | 'seen' | 'acted';
-    created_at: Date | string;
-  }>(
+export async function deleteUnactedNudgesFrom(userId: string): Promise<void> {
+  await query(
+    `DELETE FROM nudges WHERE from_user_id = $1 AND status <> 'acted'`,
+    [userId],
+  );
+}
+
+export async function getNudge(id: string): Promise<Nudge | null> {
+  const { rows } = await query<NudgeRow>(`SELECT * FROM nudges WHERE id = $1`, [id]);
+  const row = rows[0];
+  if (!row) return null;
+  return hydrateNudge(mapNudgeRow(row));
+}
+
+export async function listNudgesForUser(userId: string): Promise<DbNudge[]> {
+  const { rows } = await query<NudgeRow>(
     `SELECT * FROM nudges
      WHERE from_user_id = $1 OR to_friend_id = $1
      ORDER BY created_at DESC`,
     [userId],
   );
-  return rows.map((row) => ({
-    id: row.id,
-    fromUserId: row.from_user_id,
-    toFriendId: row.to_friend_id,
-    message: row.message,
-    contextLevel: row.context_level,
-    status: row.status,
-    createdAt: toIso(row.created_at),
-  }));
+  return rows.map(mapNudgeRow);
+}
+
+/** Nudges addressed to this user (inbox). */
+export async function listNudgesToUser(userId: string): Promise<Nudge[]> {
+  const { rows } = await query<NudgeRow>(
+    `SELECT * FROM nudges WHERE to_friend_id = $1 ORDER BY created_at DESC`,
+    [userId],
+  );
+  const out: Nudge[] = [];
+  for (const row of rows) {
+    const nudge = await hydrateNudge(mapNudgeRow(row));
+    if (nudge) out.push(nudge);
+  }
+  return out;
+}
+
+/** Acted nudges this user previously sent (privacy log). */
+export async function listActedNudgesFromUser(userId: string): Promise<Nudge[]> {
+  const { rows } = await query<NudgeRow>(
+    `SELECT * FROM nudges
+     WHERE from_user_id = $1 AND status = 'acted'
+     ORDER BY created_at DESC`,
+    [userId],
+  );
+  const out: Nudge[] = [];
+  for (const row of rows) {
+    const nudge = await hydrateNudge(mapNudgeRow(row));
+    if (nudge) out.push(nudge);
+  }
+  return out;
 }
 
 export async function insertGesture(input: {
@@ -494,36 +666,30 @@ export async function insertGesture(input: {
   );
 }
 
-export async function listGesturesForUser(userId: string): Promise<
-  Array<{
-    id: string;
-    nudgeId: string;
-    fromFriendId: string;
-    type: string;
-    placeName: string | null;
-    placeAddress: string | null;
-    note: string;
-    deliveredAt: string;
-  }>
-> {
-  const { rows } = await query<{
-    id: string;
-    nudge_id: string;
-    from_friend_id: string;
-    type: string;
-    place_name: string | null;
-    place_address: string | null;
-    note: string;
-    delivered_at: Date | string;
-  }>(
-    `SELECT g.*
-     FROM gestures g
-     JOIN nudges n ON n.id = g.nudge_id
-     WHERE g.from_friend_id = $1 OR n.to_friend_id = $1 OR n.from_user_id = $1
-     ORDER BY g.delivered_at DESC`,
-    [userId],
-  );
-  return rows.map((row) => ({
+type GestureRow = {
+  id: string;
+  nudge_id: string;
+  from_friend_id: string;
+  type: string;
+  place_name: string | null;
+  place_address: string | null;
+  note: string;
+  delivered_at: Date | string;
+};
+
+export type DbGesture = {
+  id: string;
+  nudgeId: string;
+  fromFriendId: string;
+  type: string;
+  placeName: string | null;
+  placeAddress: string | null;
+  note: string;
+  deliveredAt: string;
+};
+
+function mapGestureRow(row: GestureRow): DbGesture {
+  return {
     id: row.id,
     nudgeId: row.nudge_id,
     fromFriendId: row.from_friend_id,
@@ -532,5 +698,65 @@ export async function listGesturesForUser(userId: string): Promise<
     placeAddress: row.place_address,
     note: row.note,
     deliveredAt: toIso(row.delivered_at),
-  }));
+  };
+}
+
+async function hydrateGesture(row: DbGesture): Promise<Gesture | null> {
+  const fromFriend = await getUser(row.fromFriendId);
+  if (!fromFriend) return null;
+  const gesture: Gesture = {
+    id: row.id,
+    nudgeId: row.nudgeId,
+    fromFriend,
+    type: row.type as GestureType,
+    note: row.note,
+    deliveredAt: row.deliveredAt,
+  };
+  if (row.placeName) {
+    const place: Place = {
+      name: row.placeName,
+      address: row.placeAddress ?? row.placeName,
+    };
+    gesture.place = place;
+  }
+  return gesture;
+}
+
+export async function listGesturesForUser(userId: string): Promise<DbGesture[]> {
+  const { rows } = await query<GestureRow>(
+    `SELECT g.*
+     FROM gestures g
+     JOIN nudges n ON n.id = g.nudge_id
+     WHERE g.from_friend_id = $1 OR n.to_friend_id = $1 OR n.from_user_id = $1
+     ORDER BY g.delivered_at DESC`,
+    [userId],
+  );
+  return rows.map(mapGestureRow);
+}
+
+/** Gestures that help this user (they were the twin/nudge subject). */
+export async function listSurprisesForUser(userId: string): Promise<Gesture[]> {
+  const { rows } = await query<GestureRow>(
+    `SELECT g.*
+     FROM gestures g
+     JOIN nudges n ON n.id = g.nudge_id
+     WHERE n.from_user_id = $1
+     ORDER BY g.delivered_at DESC`,
+    [userId],
+  );
+  const out: Gesture[] = [];
+  for (const row of rows) {
+    const gesture = await hydrateGesture(mapGestureRow(row));
+    if (gesture) out.push(gesture);
+  }
+  return out;
+}
+
+export async function getGesture(id: string): Promise<Gesture | null> {
+  const { rows } = await query<GestureRow>(`SELECT * FROM gestures WHERE id = $1`, [
+    id,
+  ]);
+  const row = rows[0];
+  if (!row) return null;
+  return hydrateGesture(mapGestureRow(row));
 }
