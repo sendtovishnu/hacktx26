@@ -51,6 +51,10 @@ struct AppearanceView: View {
                 }
             }
         }
+        // Shared pieces (pills, the logo, icons) read the accent when they draw;
+        // rebuilding on change makes every one of them pick up the new color at once.
+        .id(theme.accent)
+        .tint(theme.accent.accent)
     }
 
     // A small live sample of the theme.

@@ -114,7 +114,7 @@ struct AddFriendsView: View {
             }
             Spacer()
             if let tier = justAdded[person.id] {
-                Pill(text: "Added · \(tier.circleName)", tone: .sage, systemImage: "checkmark")
+                Pill(text: "Added · \(tier.label)", tone: .sage, systemImage: "checkmark")
             } else if friendIds.contains(person.id) {
                 Text("Friends").font(Theme.semibold(13)).foregroundStyle(Theme.ink3)
             } else {
@@ -195,7 +195,7 @@ struct AddFriendSheet: View {
             } label: {
                 HStack(spacing: 8) {
                     if saving { ProgressView().tint(Theme.onAccent) }
-                    Text(choice.map { "Add to \($0.circleName)" } ?? "Choose a circle")
+                    Text(choice.map { "Add as \($0.label.lowercased())" } ?? "Choose a circle")
                 }
             }
             .buttonStyle(PrimaryButtonStyle())

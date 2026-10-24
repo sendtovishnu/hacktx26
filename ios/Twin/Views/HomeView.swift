@@ -6,8 +6,8 @@ extension Tier {
 
     var circleName: String {
         switch self {
-        case .closest: return "Closest"
-        case .close: return "Close"
+        case .closest: return "Closest friends"
+        case .close: return "Close friends"
         case .friend: return "Friends"
         }
     }
@@ -16,7 +16,7 @@ extension Tier {
         switch self {
         case .closest: return "Hears a short summary when you could use support"
         case .close: return "Hears a gentle heads-up, never details"
-        case .friend: return "Never nudged about you"
+        case .friend: return "Sees a light, general line, like \u{201C}busy week\u{201D}"
         }
     }
 
@@ -287,7 +287,7 @@ struct FriendProfileSheet: View {
                     Text(entry.friend.name)
                         .font(Theme.title(30))
                         .foregroundStyle(Theme.ink)
-                    Pill(text: "In your \(entry.tier.circleName) circle",
+                    Pill(text: "Your \(entry.tier.label.lowercased())",
                          tone: entry.tier == .closest ? .ember : .neutral)
                 }
                 .padding(.top, 24)
@@ -378,7 +378,7 @@ struct CircleOption: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text(tier.circleName).font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
+                        Text(tier.label).font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
                         if current {
                             Text("Now").font(Theme.semibold(11)).foregroundStyle(Theme.ink3)
                         }

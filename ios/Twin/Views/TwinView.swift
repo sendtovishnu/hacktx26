@@ -10,10 +10,11 @@ struct TwinView: View {
     @State private var editingShare = false
     @State private var closestDraft = ""
     @State private var closeDraft = ""
+    @State private var friendDraft = ""
     @State private var savingShare = false
     @FocusState private var focusedField: ShareField?
 
-    private enum ShareField { case closest, close }
+    private enum ShareField { case closest, close, friend }
     private let shareLimit = 90
 
     private var weekday: String {
@@ -130,6 +131,7 @@ struct TwinView: View {
                     Button {
                         closestDraft = signals.summaryForClosest
                         closeDraft = signals.summaryForClose
+                        friendDraft = signals.friendLine
                         withAnimation(.snappy) { editingShare = true }
                         focusedField = .closest
                     } label: {
@@ -142,14 +144,21 @@ struct TwinView: View {
             }
 
             if editingShare {
-                shareEditor(tier: "Closest", color: Theme.accentDeep, text: $closestDraft, field: .closest,
-                            hint: "A short line about your week")
-                shareEditor(tier: "Close", color: Theme.ink2, text: $closeDraft, field: .close,
-                            hint: "Something general, no details")
-                shareRow(tier: "Friend", color: Theme.ink3, text: "Nothing", textColor: Theme.ink3)
-                Text("Your twin will use your words from now on. Friends never see your calendar or email.")
+                shareEditor(tier: .closest, text: $closestDraft, field: .closest, hint: "A short line about your week")
+                shareEditor(tier: .close, text: $closeDraft, field: .close, hint: "Something general, no details")
+                shareEditor(tier: .friend, text: $friendDraft, field: .friend, hint: "Very light, like \u{201C}busy week\u{201D}")
+                Text("Your twin writes these from your week, and keeps your words once you edit them. Friends never see your calendar or email.")
                     .font(Theme.small(12))
                     .foregroundStyle(Theme.ink3)
+                Button {
+                    Task { await resetShare() }
+                } label: {
+                    Label("Use my twin\u{2019}s wording", systemImage: "sparkles")
+                        .font(Theme.semibold(13))
+                        .foregroundStyle(Theme.accentDeep)
+                }
+                .buttonStyle(.plain)
+                .disabled(savingShare)
                 HStack(spacing: 10) {
                     Button("Cancel") {
                         withAnimation(.snappy) { editingShare = false }
@@ -169,24 +178,54 @@ struct TwinView: View {
                     .opacity(draftsValid ? 1 : 0.5)
                 }
             } else {
-                shareRow(tier: "Closest", color: Theme.accentDeep, text: signals.summaryForClosest, textColor: Theme.ink)
-                shareRow(tier: "Close", color: Theme.ink2, text: signals.summaryForClose, textColor: Theme.ink)
-                shareRow(tier: "Friend", color: Theme.ink3, text: "Nothing", textColor: Theme.ink3)
+                shareRow(tier: .closest, text: signals.summaryForClosest, signals: signals)
+                shareRow(tier: .close, text: signals.summaryForClose, signals: signals)
+                shareRow(tier: .friend, text: signals.friendLine, signals: signals)
             }
         }
         .card()
     }
 
-    private var draftsValid: Bool {
-        let a = closestDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        let b = closeDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !a.isEmpty && !b.isEmpty && a.count <= shareLimit && b.count <= shareLimit
+    private func tierColor(_ tier: Tier) -> Color {
+        switch tier {
+        case .closest: return Theme.accentDeep
+        case .close: return Theme.ink2
+        case .friend: return Theme.ink3
+        }
     }
 
-    private func shareEditor(tier: String, color: Color, text: Binding<String>, field: ShareField, hint: String) -> some View {
+    /// The exact message that circle's nudge would carry.
+    private func preview(_ tier: Tier, line: String) -> String {
+        let name = state.me?.name ?? "You"
+        let text = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = text.prefix(1).lowercased() + text.dropFirst()
+        switch tier {
+        case .closest: return "\(name) could use you right now: \(lower)."
+        case .close: return "\(name) could use a lift this week: \(lower)."
+        case .friend: return "\(name)\u{2019}s week: \(lower). A kind word might be nice."
+        }
+    }
+
+    private func shareRow(tier: Tier, text: String, signals: Signals) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(tier.label).font(Theme.bodyStrong(13)).foregroundStyle(tierColor(tier)).frame(width: 104, alignment: .leading)
+                Text(text).font(Theme.body(14)).foregroundStyle(Theme.ink)
+            }
+        }
+    }
+
+    private var draftsValid: Bool {
+        [closestDraft, closeDraft, friendDraft].allSatisfy { draft in
+            let t = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !t.isEmpty && t.count <= shareLimit
+        }
+    }
+
+    private func shareEditor(tier: Tier, text: Binding<String>, field: ShareField, hint: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(tier).font(Theme.bodyStrong(13)).foregroundStyle(color)
+                Text(tier.label).font(Theme.bodyStrong(13)).foregroundStyle(tierColor(tier))
                 Spacer()
                 Text("\(text.wrappedValue.count)/\(shareLimit)")
                     .font(Theme.small(11))
@@ -202,6 +241,12 @@ struct TwinView: View {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .strokeBorder(focusedField == field ? Theme.accent.opacity(0.6) : Theme.linen, lineWidth: 1.2)
                 )
+            if !text.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty {
+                Text("They\u{2019}d get: \u{201C}\(preview(tier, line: text.wrappedValue))\u{201D}")
+                    .font(Theme.small(12))
+                    .italic()
+                    .foregroundStyle(Theme.ink2)
+            }
         }
     }
 
@@ -211,7 +256,8 @@ struct TwinView: View {
         do {
             let updated = try await state.api.updateSummaries(
                 closest: closestDraft.trimmingCharacters(in: .whitespacesAndNewlines),
-                close: closeDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                close: closeDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+                friend: friendDraft.trimmingCharacters(in: .whitespacesAndNewlines)
             )
             withAnimation(.snappy) {
                 signals = updated
@@ -224,10 +270,20 @@ struct TwinView: View {
         }
     }
 
-    private func shareRow(tier: String, color: Color, text: String, textColor: Color) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(tier).font(Theme.bodyStrong(13)).foregroundStyle(color).frame(width: 64, alignment: .leading)
-            Text(text).font(Theme.body(14)).foregroundStyle(textColor)
+    private func resetShare() async {
+        savingShare = true
+        defer { savingShare = false }
+        do {
+            let updated = try await state.api.resetSummaries()
+            withAnimation(.snappy) {
+                signals = updated
+                closestDraft = updated.summaryForClosest
+                closeDraft = updated.summaryForClose
+                friendDraft = updated.friendLine
+            }
+            error = nil
+        } catch {
+            self.error = error.localizedDescription
         }
     }
 

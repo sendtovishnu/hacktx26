@@ -25,7 +25,7 @@ final class MockAPI: TwinAPI {
     private let places: [Place]
     private var signalsByUser: [String: Signals] = [:]
     /// Wording the person chose for what friends see. Applied to every later refresh.
-    private var summaryOverrides: [String: (closest: String, close: String)] = [:]
+    private var summaryOverrides: [String: (closest: String, close: String, friend: String)] = [:]
     private var nudgeList: [Nudge] = []
     private var suggestionsByNudge: [String: [Suggestion]] = [:]
     private var gestureList: [StoredGesture] = []
@@ -147,7 +147,7 @@ final class MockAPI: TwinAPI {
 
         var sent = 0
         if signals.supportLevel != .doingFine && me.surpriseOptIn && !me.paused {
-            for entry in friendEntries(of: me.id) where entry.tier != .friend {
+            for entry in friendEntries(of: me.id) {
                 // One open nudge per pair: replace any earlier unanswered one.
                 nudgeList.removeAll { $0.fromUser.id == me.id && $0.toFriendId == entry.friend.id && $0.status != "acted" }
                 let nudge = Nudge(
@@ -160,7 +160,7 @@ final class MockAPI: TwinAPI {
                     createdAt: DateText.now()
                 )
                 nudgeList.insert(nudge, at: 0)
-                suggestionsByNudge[nudge.id] = suggestionsFor(me, signals: signals)
+                suggestionsByNudge[nudge.id] = suggestionsFor(me, tier: entry.tier, signals: signals)
                 sent += 1
             }
         }
@@ -172,22 +172,43 @@ final class MockAPI: TwinAPI {
         return signalsByUser[currentUserId]
     }
 
-    func updateSummaries(closest: String, close: String) async throws -> Signals {
+    func updateSummaries(closest: String, close: String, friend: String) async throws -> Signals {
         await delay()
         let me = try currentUser()
         guard var signals = signalsByUser[me.id] else {
             throw APIError.notConfigured("Refresh your twin first.")
         }
-        summaryOverrides[me.id] = (closest, close)
+        summaryOverrides[me.id] = (closest, close, friend)
         signals.summaryForClosest = closest
         signals.summaryForClose = close
+        signals.summaryForFriend = friend
         signalsByUser[me.id] = signals
-        // Nudges a friend hasn't acted on yet pick up the new wording too.
+        rewordPendingNudges(from: me, signals: signals)
+        return signals
+    }
+
+    func resetSummaries() async throws -> Signals {
+        await delay()
+        let me = try currentUser()
+        guard var signals = signalsByUser[me.id] else {
+            throw APIError.notConfigured("Refresh your twin first.")
+        }
+        summaryOverrides[me.id] = nil
+        let ai = baseSignals(me, checkin: nil)
+        signals.summaryForClosest = ai.summaryForClosest
+        signals.summaryForClose = ai.summaryForClose
+        signals.summaryForFriend = ai.summaryForFriend
+        signalsByUser[me.id] = signals
+        rewordPendingNudges(from: me, signals: signals)
+        return signals
+    }
+
+    /// Nudges a friend hasn't acted on yet pick up the new wording too.
+    private func rewordPendingNudges(from me: User, signals: Signals) {
         for index in nudgeList.indices where nudgeList[index].fromUser.id == me.id && nudgeList[index].status != "acted" {
-            let tier: Tier = nudgeList[index].contextLevel == "closest" ? .closest : .close
+            let tier = Tier(rawValue: nudgeList[index].contextLevel) ?? .friend
             nudgeList[index].message = message(for: me, tier: tier, signals: signals)
         }
-        return signals
     }
 
     func nudges() async throws -> [Nudge] {
@@ -267,6 +288,7 @@ final class MockAPI: TwinAPI {
         if let custom = summaryOverrides[me.id] {
             signals.summaryForClosest = custom.closest
             signals.summaryForClose = custom.close
+            signals.summaryForFriend = custom.friend
         }
         return signals
     }
@@ -283,7 +305,8 @@ final class MockAPI: TwinAPI {
                 busyHoursNext3Days: 9,
                 likelyLocation: me.homeLocation,
                 summaryForClosest: "A normal week",
-                summaryForClose: "Doing well"
+                summaryForClose: "Doing well",
+                summaryForFriend: "All good"
             )
         }
         return Signals(
@@ -292,18 +315,32 @@ final class MockAPI: TwinAPI {
             busyHoursNext3Days: 22,
             likelyLocation: me.homeLocation,
             summaryForClosest: text,
-            summaryForClose: "A tough week"
+            summaryForClose: "A tough week",
+            summaryForFriend: "Busy week"
         )
     }
 
     private func message(for me: User, tier: Tier, signals: Signals) -> String {
-        if tier == .closest {
+        switch tier {
+        case .closest:
             return "\(me.name) could use you right now: \(signals.summaryForClosest.lowercasedFirst)."
+        case .close:
+            return "\(me.name) could use a lift this week: \(signals.summaryForClose.lowercasedFirst)."
+        case .friend:
+            return "\(me.name)'s week: \(signals.friendLine.lowercasedFirst). A kind word might be nice."
         }
-        return "\(me.name) could use a lift this week."
     }
 
-    private func suggestionsFor(_ me: User, signals: Signals) -> [Suggestion] {
+    private func suggestionsFor(_ me: User, tier: Tier, signals: Signals) -> [Suggestion] {
+        // The outer circle only ever gets light-touch ideas.
+        if tier == .friend {
+            return [Suggestion(
+                gestureType: .message,
+                title: "Send \(me.name) a quick hello",
+                detail: "Nothing big. A friendly message can brighten a busy week.",
+                place: nil
+            )]
+        }
         let drink = me.preferences.coffeeOrder ?? "coffee"
         let spot = signals.likelyLocation ?? me.homeLocation
         var result: [Suggestion] = places.prefix(2).map { place in

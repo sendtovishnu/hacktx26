@@ -77,7 +77,7 @@ struct PrivacyView: View {
                                     Text("Your twin shared: \u{201C}\(nudge.message)\u{201D}")
                                         .font(Theme.small(12))
                                         .foregroundStyle(Theme.ink2)
-                                    Text("Because you could use support and they're your \(nudge.contextLevel) friend")
+                                    Text("Because you could use support and they're your \((Tier(rawValue: nudge.contextLevel) ?? .friend).label.lowercased())")
                                         .font(Theme.small(11))
                                         .foregroundStyle(Theme.ink3)
                                 }
@@ -195,7 +195,7 @@ struct PrivacyView: View {
         switch tier {
         case .closest: return "Short summary"
         case .close: return "General heads-up"
-        case .friend: return "Nothing"
+        case .friend: return "A light line"
         }
     }
 

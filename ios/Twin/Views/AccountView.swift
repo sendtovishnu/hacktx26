@@ -9,6 +9,7 @@ import GoogleSignIn
 struct AccountView: View {
     @EnvironmentObject private var state: AppState
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var theme = ThemeStore.shared
     @State private var sources = PrivacyInfo.Sources(google: false, ics: false)
     @State private var status: String?
     @State private var error: String?
@@ -82,7 +83,7 @@ struct AccountView: View {
                             IconBadge(systemImage: "paintpalette")
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Appearance").font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
-                                Text("\(ThemeStore.shared.accent.name) · \(ThemeStore.shared.appearance.label) mode")
+                                Text("\(theme.accent.name) · \(theme.appearance.label) mode")
                                     .font(Theme.small())
                                     .foregroundStyle(Theme.ink2)
                             }
@@ -157,6 +158,8 @@ struct AccountView: View {
             }
             .task { await loadSources() }
         }
+        .id(theme.accent)
+        .tint(theme.accent.accent)
     }
 
     private func sourceRow(title: String, subtitle: String, systemImage: String, connected: Bool, action: @escaping () -> Void) -> some View {

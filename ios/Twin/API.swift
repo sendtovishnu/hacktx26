@@ -17,7 +17,8 @@ protocol TwinAPI: AnyObject {
     func ingestICS(data: Data, filename: String) async throws -> IngestResult
     func refreshTwin(checkin: String?) async throws -> TwinRefreshResult
     func twin() async throws -> Signals?
-    func updateSummaries(closest: String, close: String) async throws -> Signals
+    func updateSummaries(closest: String, close: String, friend: String) async throws -> Signals
+    func resetSummaries() async throws -> Signals
     func nudges() async throws -> [Nudge]
     func suggestions(nudgeId: String) async throws -> [Suggestion]
     func sendGesture(nudgeId: String, suggestionIndex: Int) async throws -> Gesture
@@ -144,10 +145,17 @@ final class APIClient: TwinAPI {
         return state.signals
     }
 
-    func updateSummaries(closest: String, close: String) async throws -> Signals {
-        struct Body: Encodable { let summaryForClosest: String; let summaryForClose: String }
+    func updateSummaries(closest: String, close: String, friend: String) async throws -> Signals {
+        struct Body: Encodable { let summaryForClosest: String; let summaryForClose: String; let summaryForFriend: String }
         let state: TwinState = try await call("PATCH", "api/twin/summaries",
-                                              body: Body(summaryForClosest: closest, summaryForClose: close))
+                                              body: Body(summaryForClosest: closest, summaryForClose: close, summaryForFriend: friend))
+        guard let signals = state.signals else { throw APIError.notConfigured("Refresh your twin first.") }
+        return signals
+    }
+
+    /// Drops your edits and goes back to the twin's own wording.
+    func resetSummaries() async throws -> Signals {
+        let state: TwinState = try await send(makeRequest("DELETE", "api/twin/summaries"))
         guard let signals = state.signals else { throw APIError.notConfigured("Refresh your twin first.") }
         return signals
     }

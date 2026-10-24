@@ -10,8 +10,8 @@ enum Tier: String, Codable, CaseIterable, Identifiable, Hashable {
     var label: String {
         switch self {
         case .friend: return "Friend"
-        case .close: return "Close"
-        case .closest: return "Closest"
+        case .close: return "Close friend"
+        case .closest: return "Closest friend"
         }
     }
 }
@@ -87,6 +87,10 @@ struct Signals: Codable, Hashable {
     var likelyLocation: String?
     var summaryForClosest: String
     var summaryForClose: String
+    /// A light, low-detail line for the outer Friends circle, like "Busy week".
+    var summaryForFriend: String?
+
+    var friendLine: String { summaryForFriend ?? "Busy week" }
 }
 
 struct Place: Codable, Hashable {
@@ -117,7 +121,7 @@ struct Nudge: Codable, Identifiable, Hashable {
     var fromUser: User
     var toFriendId: String
     var message: String
-    var contextLevel: String // "closest" or "close"
+    var contextLevel: String // "closest", "close" or "friend"
     var status: String // "sent", "seen" or "acted"
     var createdAt: String
 }

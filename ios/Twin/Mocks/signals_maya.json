@@ -1,11 +1,18 @@
 {
   "supportLevel": "could_use_support",
   "stressors": [
-    { "what": "Midterm in M 408D", "when": "Tuesday" },
-    { "what": "CS 314 assignment due", "when": "Wednesday" }
+    {
+      "what": "Midterm in M 408D",
+      "when": "Tuesday"
+    },
+    {
+      "what": "CS 314 assignment due",
+      "when": "Wednesday"
+    }
   ],
   "busyHoursNext3Days": 31,
   "likelyLocation": "PCL Library, UT Austin",
   "summaryForClosest": "Midterm Tuesday and a packed study week",
-  "summaryForClose": "Busy, stressful week"
+  "summaryForClose": "Busy, stressful week",
+  "summaryForFriend": "Busy week"
 }
