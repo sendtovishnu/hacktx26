@@ -1,0 +1,38 @@
+[
+  {
+    "id": "u_maya",
+    "name": "Maya Chen",
+    "email": "maya@utexas.edu",
+    "homeLocation": "PCL Library UT Austin",
+    "preferences": {
+      "coffeeOrder": "oat latte",
+      "likes": "company"
+    },
+    "surpriseOptIn": true,
+    "paused": false
+  },
+  {
+    "id": "u_jay",
+    "name": "Jay Patel",
+    "email": "jay@utexas.edu",
+    "homeLocation": "West Campus Austin",
+    "preferences": {
+      "coffeeOrder": "cold brew",
+      "likes": "company"
+    },
+    "surpriseOptIn": true,
+    "paused": false
+  },
+  {
+    "id": "u_priya",
+    "name": "Priya Sharma",
+    "email": "priya@utexas.edu",
+    "homeLocation": "North Campus Austin",
+    "preferences": {
+      "coffeeOrder": "chai latte",
+      "likes": "space"
+    },
+    "surpriseOptIn": false,
+    "paused": false
+  }
+]

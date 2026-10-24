@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Houndstooth Coffee",
+    "address": "401 Congress Ave, Austin, TX",
+    "rating": 4.6,
+    "openNow": true,
+    "mapsUrl": "https://maps.google.com/?q=Houndstooth+Coffee+Austin"
+  },
+  {
+    "name": "Abel’s Coffeehouse",
+    "address": "2200 Rio Grande St, Austin, TX",
+    "rating": 4.5,
+    "openNow": true,
+    "mapsUrl": "https://maps.google.com/?q=Abels+Coffeehouse+Austin"
+  },
+  {
+    "name": "Starbucks — PCL",
+    "address": "Perry-Castañeda Library, Austin, TX",
+    "rating": 3.9,
+    "openNow": true,
+    "mapsUrl": "https://maps.google.com/?q=Starbucks+PCL+UT+Austin"
+  }
+]
