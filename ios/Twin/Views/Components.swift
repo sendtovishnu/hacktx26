@@ -4,24 +4,106 @@ import SwiftUI
 
 struct Avatar: View {
     let name: String
+    var id: String?
+    var photoURL: String?
     var size: CGFloat = 44
     var glow = false
+    @ObservedObject private var photos = AvatarStore.shared
+
+    init(name: String, id: String? = nil, photoURL: String? = nil, size: CGFloat = 44, glow: Bool = false) {
+        self.name = name
+        self.id = id
+        self.photoURL = photoURL
+        self.size = size
+        self.glow = glow
+    }
+
+    /// Preferred: shows the person's photo when they have one.
+    init(user: User?, size: CGFloat = 44, glow: Bool = false) {
+        self.init(name: user?.name ?? "?", id: user?.id, photoURL: user?.photoUrl, size: size, glow: glow)
+    }
 
     var body: some View {
+        ZStack {
+            initials
+            if let image = photos.image(for: id) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else if let photoURL, let url = URL(string: photoURL) {
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image {
+                        image.resizable().scaledToFill()
+                    }
+                }
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .background {
+            if glow {
+                Circle().fill(Theme.glow).frame(width: size + 24, height: size + 24)
+                Circle().fill(Theme.tint).frame(width: size + 12, height: size + 12)
+            }
+        }
+        .accessibilityLabel(name)
+    }
+
+    private var initials: some View {
         Circle()
             .fill(LinearGradient(colors: Theme.avatarColors(for: name), startPoint: .topLeading, endPoint: .bottomTrailing))
-            .frame(width: size, height: size)
             .overlay(
                 Text(String(name.prefix(1)))
                     .font(.custom(Theme.Typeface.serif, size: size * 0.42))
                     .foregroundStyle(.white)
             )
-            .background {
-                if glow {
-                    Circle().fill(Theme.glow).frame(width: size + 24, height: size + 24)
-                    Circle().fill(Theme.tint).frame(width: size + 12, height: size + 12)
+    }
+}
+
+/// Your avatar with a camera badge; tapping it picks a new profile photo.
+struct EditableAvatar: View {
+    @EnvironmentObject private var state: AppState
+    @ObservedObject private var photos = AvatarStore.shared
+    var size: CGFloat = 72
+
+    private var hasPhoto: Bool { photos.image(for: state.me?.id) != nil }
+
+    var body: some View {
+        VStack(spacing: 10) {
+            ProfilePhotoPicker {
+                Avatar(user: state.me, size: size, glow: true)
+                    .padding(12)
+                    .overlay(alignment: .bottomTrailing) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: size * 0.17, weight: .semibold))
+                            .foregroundStyle(Theme.onAccent)
+                            .frame(width: size * 0.4, height: size * 0.4)
+                            .background(Theme.accent, in: Circle())
+                            .overlay(Circle().strokeBorder(Theme.card, lineWidth: 3))
+                            .offset(x: -6, y: -6)
+                    }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Change profile photo")
+
+            HStack(spacing: 14) {
+                ProfilePhotoPicker {
+                    Text(hasPhoto ? "Change photo" : "Add a photo")
+                        .font(Theme.semibold(14))
+                        .foregroundStyle(Theme.accentDeep)
+                }
+                if hasPhoto, let id = state.me?.id {
+                    Button("Remove") {
+                        AvatarStore.shared.remove(for: id)
+                        Task {
+                            if let user = try? await state.api.removePhoto() { state.updateMe(user) }
+                        }
+                    }
+                    .font(Theme.semibold(14))
+                    .foregroundStyle(Theme.ink3)
                 }
             }
+        }
     }
 }
 
@@ -34,7 +116,7 @@ struct AccountButton: View {
         Button {
             showAccount = true
         } label: {
-            Avatar(name: state.me?.name ?? "?", size: 34)
+            Avatar(user: state.me, size: 34)
                 .overlay(Circle().strokeBorder(Theme.card, lineWidth: 2))
                 .shadow(color: Theme.shadow.opacity(0.12), radius: 6, y: 2)
         }

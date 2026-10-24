@@ -49,7 +49,7 @@ struct PrivacyView: View {
                         .foregroundStyle(Theme.ink3)
                     ForEach(info?.friends ?? []) { entry in
                         HStack(spacing: 12) {
-                            Avatar(name: entry.friend.name, size: 32)
+                            Avatar(user: entry.friend, size: 32)
                             Text(entry.friend.name).font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
                             Spacer()
                             Text(shareText(entry.tier)).font(Theme.small()).foregroundStyle(Theme.ink2)
@@ -69,7 +69,7 @@ struct PrivacyView: View {
                     } else {
                         ForEach(revealed) { nudge in
                             HStack(alignment: .top, spacing: 12) {
-                                Avatar(name: name(for: nudge.toFriendId), size: 34)
+                                Avatar(name: name(for: nudge.toFriendId), id: nudge.toFriendId, size: 34)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("\(name(for: nudge.toFriendId)) showed up for you")
                                         .font(Theme.bodyStrong(14))

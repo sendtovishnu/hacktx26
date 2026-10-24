@@ -26,8 +26,7 @@ struct AccountView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(spacing: 10) {
-                        Avatar(name: state.me?.name ?? "?", size: 72, glow: true)
-                            .padding(12)
+                        EditableAvatar(size: 72)
                         Text(state.me?.name ?? "")
                             .font(Theme.title(28))
                             .foregroundStyle(Theme.ink)
@@ -107,7 +106,7 @@ struct AccountView: View {
                                 }
                             } label: {
                                 HStack(spacing: 12) {
-                                    Avatar(name: user.name, size: 32)
+                                    Avatar(user: user, size: 32)
                                     Text(user.name).font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
                                     Spacer()
                                     if user.id == state.demoUserId {

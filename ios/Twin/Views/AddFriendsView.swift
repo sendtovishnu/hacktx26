@@ -105,7 +105,7 @@ struct AddFriendsView: View {
 
     private func personRow(_ person: User) -> some View {
         HStack(spacing: 12) {
-            Avatar(name: person.name, size: 42)
+            Avatar(user: person, size: 42)
             VStack(alignment: .leading, spacing: 2) {
                 Text(person.name).font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
                 Text(person.homeLocation.components(separatedBy: ",").first ?? "")
@@ -161,7 +161,7 @@ struct AddFriendSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     VStack(spacing: 10) {
-                        Avatar(name: person.name, size: 72, glow: true)
+                        Avatar(user: person, size: 72, glow: true)
                             .padding(14)
                         Text("Add \(person.name)")
                             .font(Theme.title(30))

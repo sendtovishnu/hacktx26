@@ -68,7 +68,7 @@ private struct NudgeRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Avatar(name: nudge.fromUser.name, size: 48, glow: nudge.status != "acted")
+            Avatar(user: nudge.fromUser, size: 48, glow: nudge.status != "acted")
                 .padding(6)
             VStack(alignment: .leading, spacing: 3) {
                 Text("\(nudge.fromUser.name) could use you")
@@ -122,7 +122,7 @@ struct SuggestionsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 16) {
-                    Avatar(name: nudge.fromUser.name, size: 58, glow: true)
+                    Avatar(user: nudge.fromUser, size: 58, glow: true)
                         .padding(12)
                     VStack(alignment: .leading, spacing: 4) {
                         Eyebrow(text: "A nudge from \(nudge.fromUser.name)'s twin", color: Theme.accent)

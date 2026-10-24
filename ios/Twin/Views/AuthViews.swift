@@ -151,7 +151,7 @@ struct SignInView: View {
                                 email = address
                             } label: {
                                 HStack(spacing: 6) {
-                                    Avatar(name: name, size: 22)
+                                    Avatar(name: name, id: "u_\(name.lowercased())", size: 22)
                                     Text(name).font(Theme.semibold(13)).foregroundStyle(Theme.ink)
                                 }
                                 .padding(.leading, 4)
@@ -196,8 +196,20 @@ struct SetupView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack(spacing: 14) {
-                        Avatar(name: state.me?.name ?? "?", size: 52, glow: true)
-                            .padding(12)
+                        ProfilePhotoPicker {
+                            Avatar(user: state.me, size: 52, glow: true)
+                                .padding(12)
+                                .overlay(alignment: .bottomTrailing) {
+                                    Image(systemName: "camera.fill")
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .foregroundStyle(Theme.onAccent)
+                                        .frame(width: 22, height: 22)
+                                        .background(Theme.accent, in: Circle())
+                                        .overlay(Circle().strokeBorder(Theme.card, lineWidth: 2))
+                                        .offset(x: -8, y: -8)
+                                }
+                        }
+                        .buttonStyle(.plain)
                         VStack(alignment: .leading, spacing: 4) {
                             Eyebrow(text: "Hi \(state.me?.name ?? "there")")
                             Text("Two quick things")
@@ -244,7 +256,7 @@ struct SetupView: View {
                     }
                     .card()
 
-                    Label("You can connect your calendar and email anytime from your account.", systemImage: "person.crop.circle")
+                    Label("Tap your photo to add a picture. You can connect your calendar and email anytime from your account.", systemImage: "person.crop.circle")
                         .font(Theme.small())
                         .foregroundStyle(Theme.ink2)
                         .labelStyle(SageIconLabelStyle())

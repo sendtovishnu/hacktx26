@@ -23,6 +23,8 @@ protocol TwinAPI: AnyObject {
     func surprises() async throws -> [Gesture]
     func privacy() async throws -> PrivacyInfo
     func updateSettings(surpriseOptIn: Bool?, paused: Bool?) async throws -> User
+    func uploadPhoto(_ jpeg: Data) async throws -> User
+    func removePhoto() async throws -> User
 }
 
 enum APIError: LocalizedError {
@@ -159,5 +161,23 @@ final class APIClient: TwinAPI {
     func updateSettings(surpriseOptIn: Bool?, paused: Bool?) async throws -> User {
         struct Body: Encodable { let surpriseOptIn: Bool?; let paused: Bool? }
         return try await call("PATCH", "api/settings", body: Body(surpriseOptIn: surpriseOptIn, paused: paused))
+    }
+
+    func uploadPhoto(_ jpeg: Data) async throws -> User {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var request = makeRequest("POST", "api/me/photo")
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        var body = Data()
+        body.append(Data("--\(boundary)\r\n".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"photo\"; filename=\"photo.jpg\"\r\n".utf8))
+        body.append(Data("Content-Type: image/jpeg\r\n\r\n".utf8))
+        body.append(jpeg)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+        request.httpBody = body
+        return try await send(request)
+    }
+
+    func removePhoto() async throws -> User {
+        try await send(makeRequest("DELETE", "api/me/photo"))
     }
 }

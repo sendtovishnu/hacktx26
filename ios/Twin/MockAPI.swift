@@ -229,6 +229,17 @@ final class MockAPI: TwinAPI {
         return allUsers[index]
     }
 
+    // Photos live on this device (AvatarStore), so every demo user here sees them.
+    func uploadPhoto(_ jpeg: Data) async throws -> User {
+        await delay()
+        return try currentUser()
+    }
+
+    func removePhoto() async throws -> User {
+        await delay()
+        return try currentUser()
+    }
+
     // MARK: Fake twin logic
 
     private func signalsFor(_ me: User, checkin: String?) -> Signals {

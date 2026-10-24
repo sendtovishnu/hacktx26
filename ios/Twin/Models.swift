@@ -65,6 +65,8 @@ struct User: Codable, Identifiable, Hashable {
     var preferences: Preferences
     var surpriseOptIn: Bool
     var paused: Bool
+    /// Profile photo on the server, if the person uploaded one.
+    var photoUrl: String?
 }
 
 struct FriendEntry: Codable, Identifiable, Hashable {

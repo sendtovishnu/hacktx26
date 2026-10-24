@@ -43,7 +43,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 18) {
                 ScreenHeader(eyebrow: state.me?.name ?? "You", title: "Your circles")
 
-                OrbitView(me: state.me?.name ?? "?", friends: friends) { entry in
+                OrbitView(me: state.me, friends: friends) { entry in
                     selected = entry
                 }
                 .frame(maxWidth: .infinity)
@@ -112,7 +112,7 @@ struct HomeView: View {
                             selected = entry
                         } label: {
                             HStack(spacing: 12) {
-                                Avatar(name: entry.friend.name, size: 38)
+                                Avatar(user: entry.friend, size: 38)
                                 Text(entry.friend.name)
                                     .font(Theme.bodyStrong(15))
                                     .foregroundStyle(Theme.ink)
@@ -146,7 +146,7 @@ struct HomeView: View {
 
 /// You at the center, friends orbiting slowly on the ring for their circle.
 struct OrbitView: View {
-    let me: String
+    let me: User?
     let friends: [FriendEntry]
     var onSelect: (FriendEntry) -> Void = { _ in }
 
@@ -189,19 +189,22 @@ struct OrbitView: View {
             let t = timeline.date.timeIntervalSinceReferenceDate
             ZStack {
                 Circle()
-                    .strokeBorder(Theme.linen, style: StrokeStyle(lineWidth: 1.2, dash: [4, 6]))
+                    .strokeBorder(Theme.accentSoft.opacity(0.7), style: StrokeStyle(lineWidth: 1.2, dash: [4, 6]))
                     .frame(width: radius(.friend) * 2, height: radius(.friend) * 2)
                 Circle()
                     .fill(Theme.glow)
                     .frame(width: radius(.close) * 2, height: radius(.close) * 2)
                 Circle()
-                    .strokeBorder(Theme.accentSoft.opacity(0.6), lineWidth: 1)
+                    .strokeBorder(Theme.accentSoft, lineWidth: 1.2)
                     .frame(width: radius(.close) * 2, height: radius(.close) * 2)
                 Circle()
                     .fill(Theme.tint)
                     .frame(width: radius(.closest) * 2, height: radius(.closest) * 2)
+                Circle()
+                    .strokeBorder(Theme.accent.opacity(0.35), lineWidth: 1.2)
+                    .frame(width: radius(.closest) * 2, height: radius(.closest) * 2)
 
-                Avatar(name: me, size: 52, glow: false)
+                Avatar(user: me, size: 52, glow: false)
                     .overlay(Circle().strokeBorder(Theme.card, lineWidth: 3))
                     .shadow(color: Theme.accent.opacity(0.3), radius: 10, y: 4)
 
@@ -245,7 +248,7 @@ struct OrbitView: View {
             onSelect(entry)
         } label: {
             VStack(spacing: 3) {
-                Avatar(name: entry.friend.name, size: entry.tier == .closest ? 38 : 32)
+                Avatar(user: entry.friend, size: entry.tier == .closest ? 38 : 32)
                     .overlay(Circle().strokeBorder(Theme.card, lineWidth: 2))
                     .shadow(color: Theme.shadow.opacity(0.12), radius: 4, y: 2)
                 Text(entry.friend.name)
@@ -279,7 +282,7 @@ struct FriendProfileSheet: View {
         ScrollView {
             VStack(spacing: 18) {
                 VStack(spacing: 10) {
-                    Avatar(name: entry.friend.name, size: 76, glow: entry.tier == .closest)
+                    Avatar(user: entry.friend, size: 76, glow: entry.tier == .closest)
                         .padding(14)
                     Text(entry.friend.name)
                         .font(Theme.title(30))
