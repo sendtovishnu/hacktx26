@@ -1,0 +1,29 @@
+[
+  {
+    "id": "u_maya",
+    "name": "Maya",
+    "email": "maya@example.com",
+    "homeLocation": "PCL Library, UT Austin",
+    "preferences": { "coffeeOrder": "oat latte", "likes": "company" },
+    "surpriseOptIn": true,
+    "paused": false
+  },
+  {
+    "id": "u_jay",
+    "name": "Jay",
+    "email": "jay@example.com",
+    "homeLocation": "Gates Dell Complex, UT Austin",
+    "preferences": { "coffeeOrder": "cold brew", "likes": "company" },
+    "surpriseOptIn": true,
+    "paused": false
+  },
+  {
+    "id": "u_priya",
+    "name": "Priya",
+    "email": "priya@example.com",
+    "homeLocation": "Welch Hall, UT Austin",
+    "preferences": { "coffeeOrder": "chai", "likes": "space" },
+    "surpriseOptIn": false,
+    "paused": false
+  }
+]

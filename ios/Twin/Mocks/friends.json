@@ -1,0 +1,8 @@
+[
+  { "userId": "u_maya", "friendId": "u_jay", "tier": "closest" },
+  { "userId": "u_maya", "friendId": "u_priya", "tier": "friend" },
+  { "userId": "u_jay", "friendId": "u_maya", "tier": "closest" },
+  { "userId": "u_jay", "friendId": "u_priya", "tier": "close" },
+  { "userId": "u_priya", "friendId": "u_maya", "tier": "close" },
+  { "userId": "u_priya", "friendId": "u_jay", "tier": "friend" }
+]
