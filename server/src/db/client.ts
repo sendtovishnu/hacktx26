@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { readFileSync } from 'node:fs';
+import tls from 'node:tls';
 import pg from 'pg';
 
 const { Pool } = pg;
@@ -13,16 +15,22 @@ function requireDatabaseUrl(): string {
   return url;
 }
 
+const TIMESCALE_CA = readFileSync(new URL('../../certs/timescale-ca.pem', import.meta.url), 'utf8');
+
 /** Shared pg Pool. Lazily created on first use so importing helpers is safe without DATABASE_URL. */
 let pool: pg.Pool | null = null;
 
 export function getPool(): pg.Pool {
   if (!pool) {
-    // Managed Postgres (Tiger) often presents a chain Cursor/cloud egress
-    // rewrites; rejectUnauthorized:false keeps demos working without shipping CA bundles.
+    // sslmode in the URL would replace the ssl option below, so it is dropped here.
+    const url = new URL(requireDatabaseUrl());
+    url.searchParams.delete('sslmode');
     pool = new Pool({
-      connectionString: requireDatabaseUrl(),
-      ssl: { rejectUnauthorized: false },
+      connectionString: url.toString(),
+      // Full verification, hostname included. Tiger services without a public certificate
+      // are signed by Timescale's own root (certs/timescale-ca.pem); public CAs stay trusted
+      // so a later switch to a CA-signed certificate keeps working.
+      ssl: { ca: [...tls.rootCertificates, TIMESCALE_CA] },
     });
   }
   return pool;
