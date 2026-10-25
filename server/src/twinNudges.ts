@@ -168,7 +168,40 @@ export async function nudgeFriends(
     });
   }
 
-  return { nudgesSent: decisions.length, nothingNew: candidates.length === 0, withdrawn };
+  // The Friends circle hears only the person's own line, word for word, and only if they wrote one.
+  // The twin never writes for this circle, so these friends never learn more than that.
+  let friendNudges = 0;
+  const friendLine = signals.summaryForFriend?.trim();
+  if (friendLine) {
+    const first = user.name.split(' ')[0];
+    const line = friendLine.charAt(0).toLowerCase() + friendLine.slice(1).replace(/[.!]+$/, '');
+    for (const friend of candidates.filter((f) => f.tier === 'friend')) {
+      const nudgeId = `n_${randomUUID()}`;
+      await deleteUnactedNudgesTo(user.id, friend.friend.id);
+      await insertNudge({
+        id: nudgeId,
+        fromUserId: user.id,
+        toFriendId: friend.friend.id,
+        message: `${first}'s week: ${line}. A kind word might be nice.`,
+        contextLevel: 'friend',
+        status: 'sent',
+        draftNote: 'thinking of you this week. hope it gets lighter soon',
+        reason: `Told ${friend.friend.name.split(' ')[0]} (your Friends circle) your own line: "${friendLine}".`,
+      });
+      await markCovered(user.id, friend.friend.id, inputKeys);
+      planMomentInBackground({
+        nudgeId,
+        person: user,
+        personEvents: events,
+        signals,
+        friend: friend.friend,
+        friendEvents: eventsByFriend.get(friend.friend.id) ?? [],
+      });
+      friendNudges += 1;
+    }
+  }
+
+  return { nudgesSent: decisions.length + friendNudges, nothingNew: candidates.length === 0, withdrawn };
 }
 
 /** A friendship just started: each side's twin may tell the other about a week already read. */

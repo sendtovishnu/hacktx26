@@ -116,12 +116,12 @@ twinRouter.get('/twin', requireDemoUser, async (req, res) => {
   res.json({ signals: getSignalsFor(user.id) });
 });
 
-// The person rewrites what each tier hears. Friend-tier people hear nothing,
-// so the app's summaryForFriend is accepted but not stored.
+// The person rewrites what each tier hears. Friend-tier people hear nothing
+// unless the person writes them a line; an empty one keeps that circle hearing nothing.
 const summariesBody = z.object({
   summaryForClosest: z.string().trim().min(1).max(200),
   summaryForClose: z.string().trim().min(1).max(200),
-  summaryForFriend: z.string().optional(),
+  summaryForFriend: z.string().trim().max(200).optional(),
 });
 
 twinRouter.patch('/twin/summaries', requireDemoUser, async (req, res) => {
@@ -135,7 +135,7 @@ twinRouter.patch('/twin/summaries', requireDemoUser, async (req, res) => {
     res.status(501).json({ error: 'Editing summaries needs the database' });
     return;
   }
-  await setSummaryOverride(user.id, body.data.summaryForClosest, body.data.summaryForClose);
+  await setSummaryOverride(user.id, body.data.summaryForClosest, body.data.summaryForClose, body.data.summaryForFriend);
   const row = await getLatestSignal(user.id);
   res.json({ signals: row ? await withOverride(user.id, toSignals(row)) : null });
 });

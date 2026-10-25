@@ -123,7 +123,7 @@ CREATE TABLE nudges (
   from_user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   to_friend_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   message TEXT NOT NULL,
-  context_level TEXT NOT NULL CHECK (context_level IN ('closest', 'close')),
+  context_level TEXT NOT NULL CHECK (context_level IN ('closest', 'close', 'friend')),
   status TEXT NOT NULL CHECK (status IN ('sent', 'seen', 'acted')),
   -- Muse's starter surprise note; the friend can edit it before sending.
   draft_note TEXT,

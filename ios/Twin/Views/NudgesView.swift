@@ -17,7 +17,7 @@ struct NudgesView: View {
                             HStack(spacing: 14) {
                                 IconBadge(systemImage: "gift.fill", size: 46, radius: 16)
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text(AppState.headline(for: gesture)).font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
+                                    MarqueeText(text: AppState.headline(for: gesture), font: Theme.bodyStrong())
                                     Text(gesture.note).font(Theme.small()).foregroundStyle(Theme.ink2).lineLimit(2)
                                 }
                                 Spacer(minLength: 0)
@@ -71,9 +71,7 @@ private struct NudgeRow: View {
             Avatar(user: nudge.fromUser, size: 48, glow: nudge.status != "acted")
                 .padding(6)
             VStack(alignment: .leading, spacing: 3) {
-                Text("\(nudge.fromUser.name) could use you")
-                    .font(Theme.bodyStrong())
-                    .foregroundStyle(Theme.ink)
+                MarqueeText(text: "\(nudge.fromUser.name) could use you", font: Theme.bodyStrong())
                 Text(nudge.message)
                     .font(Theme.small())
                     .foregroundStyle(Theme.ink2)

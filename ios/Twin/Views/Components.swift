@@ -263,3 +263,53 @@ struct PlaceMap: View {
         item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDefault])
     }
 }
+
+/// One line that scrolls around in a loop when it's too long to fit, instead of being cut off.
+/// Text that fits just sits still.
+struct MarqueeText: View {
+    let text: String
+    let font: Font
+    var color: Color = Theme.ink
+    var centered = false
+    /// Space between the end of the text and its next lap.
+    var gap: CGFloat = 48
+    /// Points per second.
+    var speed: CGFloat = 36
+
+    @State private var textWidth: CGFloat = 0
+    @State private var moving = false
+
+    private var label: some View {
+        Text(text).font(font).foregroundStyle(color).lineLimit(1).fixedSize()
+    }
+
+    var body: some View {
+        // The hidden copy sets the height (one line) and measures the full width.
+        label.hidden()
+            .background(GeometryReader { g in
+                Color.clear.onAppear { textWidth = g.size.width }.onChange(of: text) { textWidth = g.size.width }
+            })
+            .frame(maxWidth: .infinity)
+            .overlay {
+                GeometryReader { box in
+                    if textWidth > box.size.width {
+                        HStack(spacing: gap) { label; label }
+                            .offset(x: moving ? -(textWidth + gap) : 0)
+                            .animation(
+                                moving
+                                    ? .linear(duration: Double((textWidth + gap) / speed)).delay(1.2).repeatForever(autoreverses: false)
+                                    : .default,
+                                value: moving
+                            )
+                            .onAppear { moving = true }
+                            .frame(width: box.size.width, alignment: .leading)
+                            .clipped()
+                    } else {
+                        label.frame(width: box.size.width, alignment: centered ? .center : .leading)
+                    }
+                }
+            }
+            .id(text)
+            .accessibilityLabel(text)
+    }
+}

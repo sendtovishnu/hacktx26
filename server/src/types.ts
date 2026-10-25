@@ -24,6 +24,8 @@ export interface Signals {
   likelyLocation?: string;
   summaryForClosest: string;
   summaryForClose: string;
+  // Only ever the person's own words; unset means the Friends circle hears nothing.
+  summaryForFriend?: string;
 }
 // showedUpForThem: what the user recently did for this friend, e.g. "an oat latte drop-off" (pay it forward).
 // lastReaction: how the user said this friend's last gesture landed ('space' means prefer a note).
@@ -44,7 +46,7 @@ export interface Suggestion {
 }
 export interface Nudge {
   id: string; fromUser: User; toFriendId: string; message: string;
-  contextLevel: 'closest' | 'close'; status: 'sent' | 'seen' | 'acted';
+  contextLevel: 'closest' | 'close' | 'friend'; status: 'sent' | 'seen' | 'acted';
   createdAt: string;
   // Muse's starter note the friend edits; when and where the friend's twin says they can show up;
   // why the twin nudged (shown to the sender only, in the privacy log).

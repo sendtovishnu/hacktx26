@@ -313,7 +313,8 @@ final class MockAPI: TwinAPI {
         summaryOverrides[me.id] = (closest, close, friend)
         signals.summaryForClosest = closest
         signals.summaryForClose = close
-        signals.summaryForFriend = friend
+        // Empty means the Friends circle hears nothing.
+        signals.summaryForFriend = friend.isEmpty ? nil : friend
         signalsByUser[me.id] = signals
         rewordPendingNudges(from: me, signals: signals)
         return signals

@@ -99,7 +99,7 @@ export function getCoffeePlaces(): Place[] {
 export function getNudgesFor(userId: string): Nudge[] {
   return nudgeRows
     .filter((row) => row.fromUserId === userId || row.toFriendId === userId)
-    .map((row) => {
+    .map((row): Nudge | null => {
       const fromUser = getUserById(row.fromUserId);
       if (!fromUser) return null;
       return {

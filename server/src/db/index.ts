@@ -97,6 +97,9 @@ export async function ensureUserExtras(): Promise<void> {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS location_sharing TEXT NOT NULL DEFAULT 'nobody';
     -- Built once per nudge (they come from an AI), so "Do this" #2 is always the same choice.
     ALTER TABLE nudges ADD COLUMN IF NOT EXISTS suggestions JSONB;
+    -- The Friends circle can be nudged once the person writes a line for it.
+    ALTER TABLE nudges DROP CONSTRAINT IF EXISTS nudges_context_level_check;
+    ALTER TABLE nudges ADD CONSTRAINT nudges_context_level_check CHECK (context_level IN ('closest', 'close', 'friend'));
     CREATE TABLE IF NOT EXISTS user_photos (
       user_id TEXT PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
       jpeg BYTEA NOT NULL
@@ -961,7 +964,7 @@ type NudgeRow = {
   from_user_id: string;
   to_friend_id: string;
   message: string;
-  context_level: 'closest' | 'close';
+  context_level: 'closest' | 'close' | 'friend';
   status: 'sent' | 'seen' | 'acted';
   created_at: Date | string;
   draft_note?: string | null;
@@ -974,7 +977,7 @@ export type DbNudge = {
   fromUserId: string;
   toFriendId: string;
   message: string;
-  contextLevel: 'closest' | 'close';
+  contextLevel: 'closest' | 'close' | 'friend';
   status: 'sent' | 'seen' | 'acted';
   createdAt: string;
   draftNote?: string;
@@ -1027,7 +1030,8 @@ export function ensureTwinExtras(): Promise<unknown> {
       user_id TEXT PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
       summary_for_closest TEXT NOT NULL,
       summary_for_close TEXT NOT NULL
-    );`);
+    );
+    ALTER TABLE summary_overrides ADD COLUMN IF NOT EXISTS summary_for_friend TEXT;`);
   return twinExtrasReady;
 }
 
@@ -1036,7 +1040,7 @@ export async function insertNudge(input: {
   fromUserId: string;
   toFriendId: string;
   message: string;
-  contextLevel: 'closest' | 'close';
+  contextLevel: 'closest' | 'close' | 'friend';
   status?: 'sent' | 'seen' | 'acted';
   draftNote?: string;
   reason?: string;
@@ -1083,25 +1087,33 @@ export async function setNudgeMoment(id: string, moment: string): Promise<void> 
 /** The person's own wording for what each tier hears; survives twin refreshes. */
 export async function getSummaryOverride(
   userId: string,
-): Promise<{ summaryForClosest: string; summaryForClose: string } | null> {
+): Promise<{ summaryForClosest: string; summaryForClose: string; summaryForFriend?: string } | null> {
   await ensureTwinExtras();
-  const { rows } = await query<{ summary_for_closest: string; summary_for_close: string }>(
-    `SELECT summary_for_closest, summary_for_close FROM summary_overrides WHERE user_id = $1`,
+  const { rows } = await query<{ summary_for_closest: string; summary_for_close: string; summary_for_friend: string | null }>(
+    `SELECT summary_for_closest, summary_for_close, summary_for_friend FROM summary_overrides WHERE user_id = $1`,
     [userId],
   );
   const row = rows[0];
-  return row ? { summaryForClosest: row.summary_for_closest, summaryForClose: row.summary_for_close } : null;
+  return row
+    ? {
+        summaryForClosest: row.summary_for_closest,
+        summaryForClose: row.summary_for_close,
+        summaryForFriend: row.summary_for_friend || undefined,
+      }
+    : null;
 }
 
-export async function setSummaryOverride(userId: string, closest: string, close: string): Promise<void> {
+/** `friend` empty or missing means the Friends circle hears nothing. */
+export async function setSummaryOverride(userId: string, closest: string, close: string, friend?: string): Promise<void> {
   await ensureTwinExtras();
   await query(
-    `INSERT INTO summary_overrides (user_id, summary_for_closest, summary_for_close)
-     VALUES ($1, $2, $3)
+    `INSERT INTO summary_overrides (user_id, summary_for_closest, summary_for_close, summary_for_friend)
+     VALUES ($1, $2, $3, $4)
      ON CONFLICT (user_id) DO UPDATE SET
        summary_for_closest = EXCLUDED.summary_for_closest,
-       summary_for_close = EXCLUDED.summary_for_close`,
-    [userId, closest, close],
+       summary_for_close = EXCLUDED.summary_for_close,
+       summary_for_friend = EXCLUDED.summary_for_friend`,
+    [userId, closest, close, friend?.trim() || null],
   );
 }
 

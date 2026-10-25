@@ -88,21 +88,30 @@ struct RootView: View {
         }
     }
 
+    private enum Tab: Hashable { case map, friends, home, twin, nudges }
+    @State private var tab: Tab = .home
+
+    // Home sits in the middle and is where the app opens. Five tabs is all an iPhone tab bar
+    // fits, so Privacy lives in Account (your photo, top right).
     private var tabs: some View {
-        TabView {
-            NavigationStack { HomeView() }
-                .tabItem { Label("Home", systemImage: "circle.circle") }
-            NavigationStack { AddFriendsView() }
-                .tabItem { Label("Friends", systemImage: "person.badge.plus") }
-                .badge(state.friendRequests.incoming.count)
-            // Five tabs is all an iPhone tab bar fits; Privacy lives in Account (your photo, top right).
+        TabView(selection: $tab) {
             NavigationStack { FriendsMapView() }
                 .tabItem { Label("Map", systemImage: "map.fill") }
+                .tag(Tab.map)
+            NavigationStack { AddFriendsView() }
+                .tabItem { Label("Friends", systemImage: "person.2.fill") }
+                .badge(state.friendRequests.incoming.count)
+                .tag(Tab.friends)
+            NavigationStack { HomeView() }
+                .tabItem { Label("Home", systemImage: "house.fill") }
+                .tag(Tab.home)
             NavigationStack { TwinView() }
                 .tabItem { Label("Twin", systemImage: "sparkles") }
+                .tag(Tab.twin)
             NavigationStack { NudgesView() }
                 .tabItem { Label("Nudges", systemImage: "bell.fill") }
                 .badge(openNudgeCount)
+                .tag(Tab.nudges)
         }
     }
 }

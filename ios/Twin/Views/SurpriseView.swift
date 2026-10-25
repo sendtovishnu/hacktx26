@@ -35,9 +35,8 @@ struct SurpriseView: View {
                 .opacity(appeared ? 1 : 0)
 
                 VStack(spacing: 8) {
-                    Text(AppState.headline(for: gesture))
-                        .font(Theme.title(34))
-                        .multilineTextAlignment(.center)
+                    // Names can make this long; it scrolls around rather than getting cut off.
+                    MarqueeText(text: AppState.headline(for: gesture), font: Theme.title(34), color: .white, centered: true)
                     Text("From \(gesture.fromFriend.name)")
                         .font(Theme.bodyStrong())
                         .opacity(0.85)
