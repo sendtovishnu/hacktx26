@@ -50,6 +50,13 @@ final class AppState: ObservableObject {
         // A server URL baked in by `make sim` / `make phone` makes a fresh install use the real server.
         let builtInURL = (Bundle.main.object(forInfoDictionaryKey: "TwinServerURL") as? String)
             .flatMap { $0.isEmpty ? nil : $0 }
+        // A build with a new baked-in server replaces whatever an older build saved.
+        if let builtInURL, defaults.string(forKey: "builtInServerURL") != builtInURL {
+            defaults.set(builtInURL, forKey: "builtInServerURL")
+            defaults.removeObject(forKey: "serverURL")
+            defaults.removeObject(forKey: "useMockAPI")
+            defaults.removeObject(forKey: "sessionToken")
+        }
         let useMock = defaults.object(forKey: "useMockAPI") as? Bool ?? (builtInURL == nil)
         let url = defaults.string(forKey: "serverURL") ?? builtInURL ?? "http://localhost:3000"
         let token = defaults.string(forKey: "sessionToken")
