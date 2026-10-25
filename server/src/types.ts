@@ -10,7 +10,10 @@ export interface User {
   openToSupport?: boolean; surprisesOn?: boolean; phone?: string; photoUrl?: string;
   // Picked at sign-up (and editable): what suggestions are built around.
   interests?: string[];
+  // Who sees you on the Map tab, by the circle they're in for you.
+  locationSharing?: LocationSharing;
 }
+export type LocationSharing = 'nobody' | 'closest' | 'close' | 'friends';
 export interface FriendEntry { friend: User; tier: Tier }
 export interface CalendarEvent { title: string; start: string; end: string; location?: string }
 export interface EmailSnippet { from: string; subject: string; snippet: string; date: string }

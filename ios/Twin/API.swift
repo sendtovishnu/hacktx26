@@ -48,6 +48,8 @@ protocol TwinAPI: AnyObject {
     func matchContacts(phones: [String], emails: [String]) async throws -> [User]
     /// The friend says a surprise happened, so the person now gets the note.
     func markDelivered(gestureId: String) async throws
+    /// Friends whose sharing setting covers the circle they put you in.
+    func friendLocations() async throws -> [FriendLocation]
     func uploadPhoto(_ jpeg: Data) async throws -> User
     func removePhoto() async throws -> User
 }
@@ -280,6 +282,8 @@ final class APIClient: TwinAPI {
     func markDelivered(gestureId: String) async throws {
         let _: Ignored = try await call("POST", "api/gestures/\(gestureId)/delivered", body: Empty())
     }
+
+    func friendLocations() async throws -> [FriendLocation] { try await get("api/friends/locations") }
 
     func uploadPhoto(_ jpeg: Data) async throws -> User {
         let boundary = "Boundary-\(UUID().uuidString)"

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { areFriends, getFriends, upsertFriendship, useDatabase } from '../db/index.js';
+import { areFriends, friendLocations, getFriends, upsertFriendship, useDatabase } from '../db/index.js';
 import { getFriendsFor, getUserById } from '../mocks.js';
 import { requireDemoUser, type DemoRequest } from '../middleware.js';
 import type { FriendEntry } from '../types.js';
@@ -51,4 +51,13 @@ friendsRouter.patch('/friends/:friendId', requireDemoUser, async (req, res) => {
     return;
   }
   res.json({ friend, tier: body.data.tier } satisfies FriendEntry);
+});
+
+// Map tab: friends whose sharing setting covers the circle they put you in.
+friendsRouter.get('/friends/locations', requireDemoUser, async (req, res) => {
+  if (!useDatabase()) {
+    res.json([]);
+    return;
+  }
+  res.json(await friendLocations((req as DemoRequest).demoUser.id));
 });

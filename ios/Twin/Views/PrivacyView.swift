@@ -2,6 +2,8 @@ import SwiftUI
 
 struct PrivacyView: View {
     @EnvironmentObject private var state: AppState
+    /// Off when opened from Account, which is where the account button would lead anyway.
+    var showsAccountButton = true
     @State private var info: PrivacyInfo?
     @State private var error: String?
     @State private var serverURLDraft = ""
@@ -133,7 +135,7 @@ struct PrivacyView: View {
             .padding(.bottom, 24)
         }
         .screenBackground()
-        .withAccountButton()
+        .modifier(AccountButtonIf(show: showsAccountButton))
         .task(id: state.reloadToken) {
             serverURLDraft = state.serverURL
             await load()
@@ -282,6 +284,18 @@ private struct TwinHandshake: View {
                 Text(who).font(Theme.bodyStrong(13)).foregroundStyle(Theme.ink)
                 Text(what).font(Theme.small(12)).foregroundStyle(Theme.ink2)
             }
+        }
+    }
+}
+
+private struct AccountButtonIf: ViewModifier {
+    let show: Bool
+
+    func body(content: Content) -> some View {
+        if show {
+            content.withAccountButton()
+        } else {
+            content
         }
     }
 }

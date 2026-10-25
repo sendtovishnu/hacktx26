@@ -1,37 +1,23 @@
-import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
-import { decideNudges, extractSignals, filterEmails, planMoment } from '../ai/index.js';
+import { decideNudges, extractSignals, filterEmails } from '../ai/index.js';
 import {
+  addTwinEntry,
   deleteEmails,
   deleteSummaryOverride,
-  addTwinEntry,
-  coveredInputs,
-  deleteUnactedNudgesFrom,
   deleteTwinEntry,
-  deleteUnactedNudgesTo,
-  listTwinEntries,
-  markCovered,
-  markEntriesRead,
-  getFriends,
   getLatestSignal,
-  getSummaryOverride,
-  getUserLocation,
-  insertNudge,
-  latestReaction,
   listEmails,
   listEvents,
-  recentGesturesBetween,
+  listTwinEntries,
+  markEntriesRead,
   saveSignals,
-  setNudgeMoment,
   setSummaryOverride,
   toCalendarEvents,
   toEmailSnippets,
   toSignals,
   useDatabase,
 } from '../db/index.js';
-import { findPlaces } from '../places/index.js';
-import { nearLocation } from '../suggestions.js';
 import {
   getEmailsFor,
   getEventsFor,
@@ -39,66 +25,11 @@ import {
   getSignalsFor,
 } from '../mocks.js';
 import { requireDemoUser, type DemoRequest } from '../middleware.js';
-import {
-  allowedToNudge,
-  canShareContext,
-  gestureFor,
-  sharedFreeMinutes,
-} from '../rules/index.js';
-import type { CalendarEvent, GestureType, Signals, TwinFriendInput, User } from '../types.js';
+import { allowedToNudge, gestureFor, sharedFreeMinutes } from '../rules/index.js';
+import { nudgeFriends, withOverride } from '../twinNudges.js';
+import type { CalendarEvent, TwinFriendInput } from '../types.js';
 
 export const twinRouter = Router();
-
-/** What friends hear uses the person's own wording when they've edited it. */
-async function withOverride(userId: string, signals: Signals): Promise<Signals> {
-  const override = await getSummaryOverride(userId);
-  return override ? { ...signals, ...override } : signals;
-}
-
-const gestureWords: Record<string, string> = {
-  drop_off: 'a drop-off',
-  hangout: 'a study break together',
-  message: 'a note',
-};
-
-/** Pay it forward: what `user` recently did for `friend`, if anything. */
-async function showedUpFor(user: User, friend: User): Promise<string | undefined> {
-  const [latest] = await recentGesturesBetween(user.id, friend.id);
-  if (!latest) return undefined;
-  const what = gestureWords[latest.type] ?? 'something kind';
-  return latest.placeName ? `${what} from ${latest.placeName}` : what;
-}
-
-/**
- * Twin to twin, in the background: the friend's twin plans when and where they
- * can show up, so the person's refresh doesn't wait on it. The friend's app
- * picks the moment up on its next poll.
- */
-function planMomentInBackground(args: {
-  nudgeId: string;
-  person: User;
-  personEvents: CalendarEvent[];
-  signals: Signals;
-  friend: User;
-  friendEvents: CalendarEvent[];
-  gestureType: GestureType;
-}): void {
-  void (async () => {
-    const loc = (await getUserLocation(args.person.id)) ?? (await getUserLocation(args.friend.id));
-    const near = nearLocation(args.signals, args.person.homeLocation, loc?.label);
-    const [place] = args.gestureType === 'message' ? [] : await findPlaces('coffee', near, loc ?? undefined);
-    const moment = await planMoment({
-      friend: args.friend,
-      friendEvents: args.friendEvents,
-      person: args.person,
-      personBusy: args.personEvents.map(({ start, end }) => ({ start, end })),
-      personLocation: args.signals.likelyLocation ?? args.person.homeLocation,
-      gestureType: args.gestureType,
-      placeName: place?.name,
-    });
-    if (moment) await setNudgeMoment(args.nudgeId, moment);
-  })().catch((err) => console.warn('[twin] moment planning failed:', (err as Error).message));
-}
 
 const refreshBody = z.object({
   checkin: z.string().optional(),
@@ -127,88 +58,15 @@ twinRouter.post('/twin/refresh', requireDemoUser, async (req, res) => {
       await markEntriesRead(user.id);
       const signals = await withOverride(user.id, toSignals((await getLatestSignal(user.id))!));
 
-      const friendEntries = await getFriends(user.id);
-      const friends: TwinFriendInput[] = [];
-      const eventsByFriend = new Map<string, CalendarEvent[]>();
-      for (const entry of friendEntries) {
-        const friendEvents = toCalendarEvents(await listEvents(entry.friend.id));
-        eventsByFriend.set(entry.friend.id, friendEvents);
-        friends.push({
-          friend: entry.friend,
-          tier: entry.tier,
-          sharedFreeMinutes: sharedFreeMinutes(events, friendEvents),
-          showedUpForThem: await showedUpFor(user, entry.friend),
-          lastReaction: (await latestReaction(user.id, entry.friend.id)) ?? undefined,
-        });
-      }
-
-      // A friend hears about each thing once. Only friends with something new are considered,
-      // and a nudge marks everything it was based on as told.
-      const inputKeys = [
-        ...dbEvents.map((e) => `event:${e.title}|${e.start}`),
-        ...dbEmails.map((e) => `email:${e.fromAddr}|${e.subject}|${e.date}`),
-        ...entries.map((e) => `entry:${e.id}`),
-        ...(checkin?.trim() ? [`checkin:${checkin.trim().toLowerCase()}`] : []),
-      ];
-      const covered = await coveredInputs(user.id);
-      const hasNews = (friendId: string) => inputKeys.some((k) => !covered.get(friendId)?.has(k));
-      const candidates = friends.filter((f) => hasNews(f.friend.id));
-
-      let decisions = candidates.length ? await decideNudges(user, signals, candidates) : [];
-      decisions = decisions.filter((d) => {
-        const friend = candidates.find((f) => f.friend.id === d.friendId);
-        if (!friend) return false;
-        return allowedToNudge(friend.tier, signals.supportLevel);
-      });
-
-      decisions = decisions.map((d) => {
-        const friend = friends.find((f) => f.friend.id === d.friendId);
-        const mins = friend?.sharedFreeMinutes ?? 0;
-        // The person said they needed space last time: a note, not a visit.
-        const gestureType = friend?.lastReaction === 'space' ? 'message' : gestureFor(signals, mins);
-        return { ...d, gestureType };
-      });
-
-      const withdrawn = user.paused || !user.surpriseOptIn || signals.supportLevel === 'doing_fine';
-      if (withdrawn) {
-        decisions = [];
-        // Doing fine, or not open to support: open nudges are taken back. Coverage stays, so nothing repeats.
-        await deleteUnactedNudgesFrom(user.id);
-      }
-
-      for (const decision of decisions) {
-        const friend = friends.find((f) => f.friend.id === decision.friendId);
-        const contextLevel = friend ? canShareContext(friend.tier) : null;
-        if (!friend || !contextLevel) continue;
-        const nudgeId = `n_${randomUUID()}`;
-        await deleteUnactedNudgesTo(user.id, decision.friendId);
-        await insertNudge({
-          id: nudgeId,
-          fromUserId: user.id,
-          toFriendId: decision.friendId,
-          message: decision.message,
-          contextLevel,
-          status: 'sent',
-          draftNote: decision.surpriseNote,
-          reason: decision.reason,
-        });
-        await markCovered(user.id, decision.friendId, inputKeys);
-        planMomentInBackground({
-          nudgeId,
-          person: user,
-          personEvents: events,
-          signals,
-          friend: friend.friend,
-          friendEvents: eventsByFriend.get(friend.friend.id) ?? [],
-          gestureType: decision.gestureType,
-        });
-      }
-
+      const result = await nudgeFriends(user, { emails: dbEmails, checkin, fromRefresh: true });
       await deleteEmails(user.id);
 
       // Nothing new for anyone: friends already know about everything this refresh read.
-      const nothingNew = !withdrawn && inputKeys.length > 0 && candidates.length === 0;
-      res.json({ signals, nudgesSent: decisions.length, nothingNew });
+      res.json({
+        signals,
+        nudgesSent: result?.nudgesSent ?? 0,
+        nothingNew: result ? !result.withdrawn && result.nothingNew : false,
+      });
       return;
     }
 

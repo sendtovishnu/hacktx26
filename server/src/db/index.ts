@@ -43,6 +43,7 @@ type UserRow = {
   phone?: string | null;
   photo_updated_at?: Date | null;
   interests?: string[] | string | null;
+  location_sharing?: string | null;
 };
 
 type FriendshipRow = UserRow & {
@@ -70,6 +71,7 @@ export function mapUser(row: UserRow): User {
     surprisesOn: row.surprises_on ?? true,
     phone: row.phone ?? undefined,
     interests: typeof row.interests === 'string' ? (JSON.parse(row.interests) as string[]) : row.interests ?? [],
+    locationSharing: (row.location_sharing as User['locationSharing']) ?? 'nobody',
     // Relative, so it works behind any host; the app resolves it against its server URL.
     photoUrl: row.photo_updated_at ? `/api/photos/${row.id}?v=${row.photo_updated_at.getTime()}` : undefined,
   };
@@ -91,6 +93,8 @@ export async function ensureUserExtras(): Promise<void> {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS location_label TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS location_updated_at TIMESTAMPTZ;
+    -- Map tab: 'nobody', or the widest circle (from the sharer's side) that can see them.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS location_sharing TEXT NOT NULL DEFAULT 'nobody';
     -- Built once per nudge (they come from an AI), so "Do this" #2 is always the same choice.
     ALTER TABLE nudges ADD COLUMN IF NOT EXISTS suggestions JSONB;
     CREATE TABLE IF NOT EXISTS user_photos (
@@ -126,6 +130,38 @@ export async function setUserLocation(userId: string, loc: UserLocation): Promis
     `UPDATE users SET lat = $2, lng = $3, location_label = $4, location_updated_at = now() WHERE id = $1`,
     [userId, loc.lat, loc.lng, loc.label ?? null],
   );
+}
+
+export async function setLocationSharing(userId: string, sharing: string): Promise<void> {
+  await query('UPDATE users SET location_sharing = $2 WHERE id = $1', [userId, sharing]);
+}
+
+export type FriendLocation = UserLocation & { user: User; updatedAt: string };
+
+/**
+ * Friends who let you see them: their setting must cover the circle THEY put you in.
+ * ('closest' = closest only, 'close' = close and closest, 'friends' = everyone they're friends with.)
+ */
+export async function friendLocations(userId: string): Promise<FriendLocation[]> {
+  const { rows } = await query<UserRow & { lat: number; lng: number; location_label: string | null; location_updated_at: Date }>(
+    `SELECT u.*
+     FROM friendships mine
+     JOIN users u ON u.id = mine.friend_id
+     JOIN friendships theirs ON theirs.user_id = u.id AND theirs.friend_id = mine.user_id
+     WHERE mine.user_id = $1 AND u.lat IS NOT NULL AND u.lng IS NOT NULL
+       AND (u.location_sharing = 'friends'
+            OR (u.location_sharing = 'close' AND theirs.tier IN ('close', 'closest'))
+            OR (u.location_sharing = 'closest' AND theirs.tier = 'closest'))
+     ORDER BY u.name`,
+    [userId],
+  );
+  return rows.map((r) => ({
+    user: mapUser(r),
+    lat: r.lat,
+    lng: r.lng,
+    label: r.location_label ?? undefined,
+    updatedAt: r.location_updated_at.toISOString(),
+  }));
 }
 
 export async function getUserLocation(userId: string): Promise<UserLocation | null> {

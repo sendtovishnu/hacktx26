@@ -1,7 +1,7 @@
 import CoreLocation
 
-// One location fix, when the person allows it, so suggestions are searched near them.
-// Only the server sees it, and only to search nearby; friends never do.
+// One location fix, when the person allows it: for searching near them, and for the Map,
+// where only the circles they choose can see it.
 
 @MainActor
 final class LocationReporter: NSObject, CLLocationManagerDelegate {

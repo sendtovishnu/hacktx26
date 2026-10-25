@@ -35,6 +35,28 @@ struct AccountView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 8)
 
+                    NavigationLink {
+                        PrivacyView(showsAccountButton: false)
+                    } label: {
+                        HStack(spacing: 12) {
+                            IconBadge(systemImage: "lock.fill")
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Privacy").font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
+                                Text("Open to support, surprises, who hears what")
+                                    .font(Theme.small())
+                                    .foregroundStyle(Theme.ink2)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Theme.ink3)
+                        }
+                        .contentShape(Rectangle())
+                        .card()
+                    }
+                    .buttonStyle(.plain)
+
                     Button {
                         editingInterests = true
                     } label: {
@@ -61,7 +83,7 @@ struct AccountView: View {
                         IconBadge(systemImage: "location")
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Location").font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
-                            Text(locationLabel.map { "Near \($0). Friends never see it." } ?? "Share it so ideas are near you")
+                            Text(locationLabel.map { "Near \($0). Choose who sees you on the Map tab." } ?? "Share it so ideas are near you")
                                 .font(Theme.small())
                                 .foregroundStyle(Theme.ink2)
                         }

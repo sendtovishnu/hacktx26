@@ -15,6 +15,8 @@ export async function planMoment(input: {
   personLocation?: string;
   gestureType: GestureType;
   placeName?: string;
+  /** The top suggestion, e.g. "Explore a local art museum together". */
+  activity?: string;
   now?: Date;
 }): Promise<string | null> {
   if (useMocks()) return null;
@@ -26,7 +28,7 @@ export async function planMoment(input: {
       timeZone: 'America/Chicago', weekday: 'short', hour: 'numeric', minute: '2-digit',
     });
 
-  const prompt = `You are ${friendName}'s digital twin. ${personName}'s twin says ${personName} could use support, and suggests a ${input.gestureType.replace('_', '-')}${input.placeName ? ` (from ${input.placeName})` : ''}.
+  const prompt = `You are ${friendName}'s digital twin. ${personName}'s twin says ${personName} could use support, and suggests ${input.activity ? `"${input.activity}"` : `a ${input.gestureType.replace('_', '-')}`}${input.placeName ? ` at ${input.placeName}` : ''}.
 Find the best moment in the next 3 days, between 9am and 10pm, when ${friendName} can realistically do it: a gap in ${friendName}'s calendar, ideally when ${friendName} is already near ${personName}, and when ${personName} is not busy.
 It is now ${local(now.toISOString())} (America/Chicago).
 

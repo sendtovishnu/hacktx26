@@ -318,7 +318,7 @@ struct SetupView: View {
                             IconBadge(systemImage: "location")
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Your location").font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
-                                Text("So friends get ideas near you, not across the country. Friends never see where you are.")
+                                Text("So friends get ideas near you, not across the country. No one sees where you are unless you turn that on in Map.")
                                     .font(Theme.small())
                                     .foregroundStyle(Theme.ink2)
                             }

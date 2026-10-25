@@ -398,6 +398,18 @@ final class MockAPI: TwinAPI {
         gestureList[index].gesture.deliveredAt = DateText.now()
     }
 
+    /// Mock friends stand around UT Austin so the Map has something to show.
+    func friendLocations() async throws -> [FriendLocation] {
+        let spots: [String: (Double, Double, String)] = [
+            "u_jay": (30.2862, -97.7394, "West Campus"),
+            "u_priya": (30.2827, -97.7330, "PCL Library"),
+        ]
+        return friendEntries(of: currentUserId).compactMap { entry in
+            guard let spot = spots[entry.friend.id] else { return nil }
+            return FriendLocation(user: entry.friend, lat: spot.0, lng: spot.1, label: spot.2, updatedAt: DateText.now())
+        }
+    }
+
     func searchUsers(_ query: String) async throws -> [User] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
         guard !q.isEmpty else { return [] }
@@ -434,6 +446,7 @@ final class MockAPI: TwinAPI {
         if let surprisesOn = patch.surprisesOn { allUsers[index].surprisesOn = surprisesOn }
         if let phone = patch.phone { allUsers[index].phone = phone.isEmpty ? nil : phone }
         if let interests = patch.interests { allUsers[index].interests = interests }
+        if let sharing = patch.locationSharing { allUsers[index].locationSharing = sharing }
         return allUsers[index]
     }
 

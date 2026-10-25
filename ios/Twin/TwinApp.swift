@@ -94,13 +94,14 @@ struct RootView: View {
             NavigationStack { AddFriendsView() }
                 .tabItem { Label("Friends", systemImage: "person.badge.plus") }
                 .badge(state.friendRequests.incoming.count)
+            // Five tabs is all an iPhone tab bar fits; Privacy lives in Account (your photo, top right).
+            NavigationStack { FriendsMapView() }
+                .tabItem { Label("Map", systemImage: "map.fill") }
             NavigationStack { TwinView() }
                 .tabItem { Label("Twin", systemImage: "sparkles") }
             NavigationStack { NudgesView() }
                 .tabItem { Label("Nudges", systemImage: "bell.fill") }
                 .badge(openNudgeCount)
-            NavigationStack { PrivacyView() }
-                .tabItem { Label("Privacy", systemImage: "lock.fill") }
         }
     }
 }

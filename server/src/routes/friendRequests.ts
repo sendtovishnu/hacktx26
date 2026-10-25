@@ -11,6 +11,7 @@ import {
   useDatabase,
 } from '../db/index.js';
 import { requireDemoUser, type DemoRequest } from '../middleware.js';
+import { nudgeNewFriendship } from '../twinNudges.js';
 
 export const friendRequestsRouter = Router();
 
@@ -45,6 +46,8 @@ friendRequestsRouter.post('/friend-requests', requireDemoUser, async (req, res) 
     res.status(409).json({ error: 'You\'re already friends.' });
     return;
   }
+  // They had already asked you: you're friends now, so each twin may share a week it already read.
+  if (result.status === 'accepted') nudgeNewFriendship(user, result.friend.friend);
   res.status(201).json(result);
 });
 
@@ -60,6 +63,8 @@ friendRequestsRouter.post('/friend-requests/:id/accept', requireDemoUser, async 
     res.status(404).json({ error: 'That request is no longer pending.' });
     return;
   }
+  // A refresh from before you were friends still counts: each twin may tell the other now.
+  nudgeNewFriendship(user, friend.friend);
   res.json(friend);
 });
 

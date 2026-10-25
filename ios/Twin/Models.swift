@@ -74,6 +74,42 @@ struct User: Codable, Identifiable, Hashable {
     var phone: String?
     /// Picked at sign-up; suggestions for showing up are built around these.
     var interests: [String]?
+    /// Who sees you on the Map: "nobody", "closest", "close" or "friends".
+    var locationSharing: String?
+}
+
+/// Who can see you on the Map, widest last. Each level includes the closer circles.
+enum LocationSharing: String, CaseIterable, Identifiable {
+    case nobody, closest, close, friends
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .nobody: return "No one"
+        case .closest: return "Closest friends"
+        case .close: return "Close friends"
+        case .friends: return "All friends"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .nobody: return "You're off the map."
+        case .closest: return "Only your closest friends see where you are."
+        case .close: return "Close and closest friends see where you are."
+        case .friends: return "Everyone you're friends with sees where you are."
+        }
+    }
+}
+
+/// A friend who chose to let you see them, and where they were last.
+struct FriendLocation: Codable, Identifiable, Hashable {
+    var user: User
+    var lat: Double
+    var lng: Double
+    var label: String?
+    var updatedAt: String
+    var id: String { user.id }
 }
 
 extension User {
@@ -87,6 +123,7 @@ struct SettingsPatch: Encodable {
     var phone: String?
     var interests: [String]?
     var location: LocationPatch?
+    var locationSharing: String?
 }
 
 /// Where you are, for searching nearby. The server keeps it private.
