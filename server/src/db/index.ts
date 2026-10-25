@@ -86,6 +86,11 @@ export async function ensureUserExtras(): Promise<void> {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_updated_at TIMESTAMPTZ;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS interests JSONB NOT NULL DEFAULT '[]'::jsonb;
+    -- Where the person is, from the app. Never sent to other people; only used to search nearby.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS location_label TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS location_updated_at TIMESTAMPTZ;
     -- Built once per nudge (they come from an AI), so "Do this" #2 is always the same choice.
     ALTER TABLE nudges ADD COLUMN IF NOT EXISTS suggestions JSONB;
     CREATE TABLE IF NOT EXISTS user_photos (
@@ -112,6 +117,26 @@ export async function ensureUserExtras(): Promise<void> {
       PRIMARY KEY (user_id, friend_id, input_key)
     );`);
   await ensureTwinExtras();
+}
+
+export type UserLocation = { lat: number; lng: number; label?: string };
+
+export async function setUserLocation(userId: string, loc: UserLocation): Promise<void> {
+  await query(
+    `UPDATE users SET lat = $2, lng = $3, location_label = $4, location_updated_at = now() WHERE id = $1`,
+    [userId, loc.lat, loc.lng, loc.label ?? null],
+  );
+}
+
+export async function getUserLocation(userId: string): Promise<UserLocation | null> {
+  if (!useDatabase()) return null;
+  const { rows } = await query<{ lat: number | null; lng: number | null; location_label: string | null }>(
+    'SELECT lat, lng, location_label FROM users WHERE id = $1',
+    [userId],
+  );
+  const r = rows[0];
+  if (r?.lat == null || r.lng == null) return null;
+  return { lat: r.lat, lng: r.lng, label: r.location_label ?? undefined };
 }
 
 export async function savePhoto(userId: string, jpeg: Buffer): Promise<User | null> {

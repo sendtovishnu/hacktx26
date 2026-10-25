@@ -1,5 +1,5 @@
 import { planIdeas } from './ai/ideas.js';
-import { findPlaces, searchPlaces } from './places/index.js';
+import { findPlaces, searchPlaces, type LatLng } from './places/index.js';
 import type {
   GestureType,
   Place,
@@ -18,14 +18,14 @@ function capitalizeFirst(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/** Near string for place search: likelyLocation, else DEMO_LOCATION. */
-export function nearLocation(signals?: Signals | null, fallbackHome?: string): string {
-  return (
-    signals?.likelyLocation?.trim() ||
-    process.env.DEMO_LOCATION?.trim() ||
-    fallbackHome?.trim() ||
-    'PCL Library UT Austin'
-  );
+/**
+ * Near string for place search and prompts. The city from the phone's location keeps a vague
+ * "library" from landing in another state; DEMO_LOCATION is the last resort.
+ */
+export function nearLocation(signals?: Signals | null, fallbackHome?: string, city?: string): string {
+  const spot = signals?.likelyLocation?.trim();
+  if (city) return spot ? `${spot}, ${city}` : city;
+  return spot || process.env.DEMO_LOCATION?.trim() || fallbackHome?.trim() || 'PCL Library UT Austin';
 }
 
 /**
@@ -39,13 +39,15 @@ export async function buildSuggestions(input: {
   nudgeMessage: string;
   /** They said they needed space last time, so only notes, no visits. */
   wantsSpace?: boolean;
+  /** Search around this point when the app shared a location. */
+  ll?: LatLng;
 }): Promise<Suggestion[]> {
-  const { fromUser, gestureType, near, nudgeMessage, wantsSpace } = input;
+  const { fromUser, gestureType, near, nudgeMessage, wantsSpace, ll } = input;
   const drink = fromUser.preferences.coffeeOrder ?? 'coffee';
   const [places, matchaPlaces] =
     wantsSpace
       ? [[], []]
-      : await Promise.all([findPlaces('coffee', near), findPlaces('matcha', near)]);
+      : await Promise.all([findPlaces('coffee', near, ll), findPlaces('matcha', near, ll)]);
 
   const out: Suggestion[] = [];
   // Coffee and matcha are both on the table, so the friend can pick what fits.
@@ -155,8 +157,8 @@ export function surpriseNoteFor(
 }
 
 /**
- * Suggestions built around both people's interests: the twin picks ideas, SerpApi finds a real
- * place for each. Falls back to the coffee and matcha set when there are no interests or
+ * Suggestions built on what the two people have in common (or what the person loves): the twin
+ * picks ideas, SerpApi finds a real place for each, near where the person is. Falls back to the coffee and matcha set when there are no interests or
  * nothing is found. A note is always the last option.
  */
 export async function buildPersonalSuggestions(input: {
@@ -166,14 +168,20 @@ export async function buildPersonalSuggestions(input: {
   near: string;
   nudgeMessage: string;
   wantsSpace?: boolean;
+  ll?: LatLng;
 }): Promise<Suggestion[]> {
-  const { fromUser, friend, gestureType, near, nudgeMessage, wantsSpace } = input;
+  const { fromUser, friend, gestureType, near, nudgeMessage, wantsSpace, ll } = input;
   if (wantsSpace) return buildSuggestions(input);
 
   const ideas = await planIdeas({ helped: fromUser, friend, prefer: gestureType, nudgeMessage, near });
-  const found = await Promise.all(
-    ideas.map(async (idea) => ({ idea, place: (await searchPlaces(idea.search, near))[0] })),
-  );
+  const results = await Promise.all(ideas.map((idea) => searchPlaces(idea.search, near, ll)));
+  // Each idea gets its own place: the first result another idea hasn't taken.
+  const used = new Set<string>();
+  const found = ideas.map((idea, i) => {
+    const place = results[i].find((p) => !used.has(p.name));
+    if (place) used.add(place.name);
+    return { idea, place };
+  });
   const personal: Suggestion[] = found
     .filter((f): f is typeof f & { place: Place } => Boolean(f.place))
     .map(({ idea, place }) => ({
@@ -182,6 +190,8 @@ export async function buildPersonalSuggestions(input: {
       detail: idea.detail,
       place,
       item: idea.item,
+      basedOn: idea.interest,
+      sharedInterest: idea.shared,
     }));
   if (personal.length < 2) return buildSuggestions(input);
 

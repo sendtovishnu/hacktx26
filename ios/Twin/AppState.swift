@@ -106,6 +106,7 @@ final class AppState: ObservableObject {
         await reloadMe()
         startPolling()
         if contactsConnected { try? await syncContacts() }
+        await shareLocation(askIfNeeded: false)
     }
 
     func reloadUsers() async {
@@ -276,6 +277,19 @@ final class AppState: ObservableObject {
         case .message: return "\(name) sent you a note"
         }
     }
+
+    // MARK: Location
+
+    /// Sends where you are so suggestions are searched nearby. Quietly does nothing without permission.
+    @discardableResult
+    func shareLocation(askIfNeeded: Bool) async -> String? {
+        guard let fix = await LocationReporter.shared.currentLocation(askIfNeeded: askIfNeeded) else { return nil }
+        _ = try? await api.updateSettings(SettingsPatch(location: LocationPatch(lat: fix.lat, lng: fix.lng, label: fix.label)))
+        UserDefaults.standard.set(fix.label, forKey: "locationLabel")
+        return fix.label ?? "Shared"
+    }
+
+    var locationLabel: String? { UserDefaults.standard.string(forKey: "locationLabel") }
 
     // MARK: Contacts
 

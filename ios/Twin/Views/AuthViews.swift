@@ -220,6 +220,8 @@ struct SetupView: View {
     @State private var notificationsAsked = false
     @State private var saving = false
     @State private var step = 0
+    @State private var locationLabel: String?
+    @State private var locating = false
     @State private var interests: [String] = []
 
     var body: some View {
@@ -305,6 +307,37 @@ struct SetupView: View {
                         setting("gift", "Surprises",
                                 "On: when a friend brings you a coffee or plans a hangout, you won't know until it happens. Off: you get a heads-up first.",
                                 isOn: $surprisesOn)
+                    }
+                    .card()
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .top, spacing: 14) {
+                            IconBadge(systemImage: "location")
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Your location").font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
+                                Text("So friends get ideas near you, not across the country. Friends never see where you are.")
+                                    .font(Theme.small())
+                                    .foregroundStyle(Theme.ink2)
+                            }
+                        }
+                        if let locationLabel {
+                            Pill(text: "Near \(locationLabel)", tone: .sage, systemImage: "checkmark")
+                        } else {
+                            Button {
+                                Task {
+                                    locating = true
+                                    locationLabel = await state.shareLocation(askIfNeeded: true)
+                                    locating = false
+                                }
+                            } label: {
+                                HStack(spacing: 8) {
+                                    if locating { ProgressView().tint(Theme.onAccent) }
+                                    Text("Share my location")
+                                }
+                            }
+                            .buttonStyle(PrimaryButtonStyle(height: 44))
+                            .disabled(locating)
+                        }
                     }
                     .card()
 

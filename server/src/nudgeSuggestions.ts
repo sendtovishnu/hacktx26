@@ -1,6 +1,7 @@
 import {
   getLatestSignal,
   getNudgeSuggestions,
+  getUserLocation,
   latestReaction,
   listEvents,
   respectReaction,
@@ -55,13 +56,16 @@ export async function suggestionsForNudge(nudge: Nudge, friend: User): Promise<S
   }
   const { gestureType, signals } = await resolveGestureType(nudge.fromUser.id, nudge.toFriendId);
   const wantsSpace = useDatabase() && (await latestReaction(nudge.fromUser.id, friend.id)) === 'space';
+  // Search where the person being helped is; the friend's spot is next best.
+  const loc = (await getUserLocation(nudge.fromUser.id)) ?? (await getUserLocation(friend.id));
   const suggestions = await buildPersonalSuggestions({
     fromUser: nudge.fromUser,
     friend,
     gestureType,
-    near: nearLocation(signals, nudge.fromUser.homeLocation),
+    near: nearLocation(signals, nudge.fromUser.homeLocation, loc?.label),
     nudgeMessage: nudge.message,
     wantsSpace,
+    ll: loc ? { lat: loc.lat, lng: loc.lng } : undefined,
   });
   if (useDatabase()) await setNudgeSuggestions(nudge.id, suggestions);
   return suggestions;

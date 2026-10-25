@@ -16,6 +16,8 @@ struct AccountView: View {
     @State private var phone = ""
     @State private var phoneSaved = false
     @State private var editingInterests = false
+    @State private var locationLabel: String?
+    @State private var locating = false
 
     var body: some View {
         NavigationStack {
@@ -54,6 +56,39 @@ struct AccountView: View {
                         .card()
                     }
                     .buttonStyle(.plain)
+
+                    HStack(spacing: 12) {
+                        IconBadge(systemImage: "location")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Location").font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
+                            Text(locationLabel.map { "Near \($0). Friends never see it." } ?? "Share it so ideas are near you")
+                                .font(Theme.small())
+                                .foregroundStyle(Theme.ink2)
+                        }
+                        Spacer()
+                        Button {
+                            Task {
+                                locating = true
+                                if let label = await state.shareLocation(askIfNeeded: true) {
+                                    locationLabel = label
+                                } else if !LocationReporter.shared.isAuthorized,
+                                          let settings = URL(string: UIApplication.openSettingsURLString) {
+                                    // They said no before; only Settings can change that.
+                                    await UIApplication.shared.open(settings)
+                                }
+                                locating = false
+                            }
+                        } label: {
+                            if locating {
+                                ProgressView().frame(width: 60)
+                            } else {
+                                Text(locationLabel == nil ? "Share" : "Update").font(Theme.semibold(14))
+                            }
+                        }
+                        .disabled(locating)
+                    }
+                    .card()
+                    .onAppear { locationLabel = state.locationLabel }
 
                     VStack(alignment: .leading, spacing: 10) {
                         Eyebrow(text: "Phone number")

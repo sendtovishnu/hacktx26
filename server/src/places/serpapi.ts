@@ -23,14 +23,19 @@ function mapsUrl(r: LocalResult): string {
   return `https://www.google.com/maps/search/?${q}`;
 }
 
-export async function searchMaps(query: string): Promise<Place[]> {
+export type LatLng = { lat: number; lng: number };
+
+/** With `ll`, Google searches around that point; without it, a vague "near" can land in another city. */
+export async function searchMaps(query: string, ll?: LatLng): Promise<Place[]> {
   const url = new URL('https://serpapi.com/search.json');
-  url.search = new URLSearchParams({
+  const params: Record<string, string> = {
     engine: 'google_maps',
     type: 'search',
     q: query,
     api_key: process.env.SERPAPI_KEY ?? '',
-  }).toString();
+  };
+  if (ll) params.ll = `@${ll.lat.toFixed(5)},${ll.lng.toFixed(5)},14z`;
+  url.search = new URLSearchParams(params).toString();
 
   const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
   const body = (await res.json()) as { local_results?: LocalResult[]; error?: string };

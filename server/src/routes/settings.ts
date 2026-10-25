@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { updateSettings, useDatabase } from '../db/index.js';
+import { setUserLocation, updateSettings, useDatabase } from '../db/index.js';
 import { requireDemoUser, type DemoRequest } from '../middleware.js';
 import type { User } from '../types.js';
 
@@ -16,6 +16,10 @@ settingsRouter.patch('/settings', requireDemoUser, async (req, res) => {
       surprisesOn: z.boolean().optional(),
       phone: z.string().trim().max(30).nullable().optional(),
       interests: z.array(z.string().trim().min(1).max(40)).max(40).optional(),
+      // From the app's location permission; used only to search near the person, never shown to friends.
+      location: z
+        .object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180), label: z.string().max(80).optional() })
+        .optional(),
       paused: z.boolean().optional(),
       preferences: z
         .object({
@@ -32,6 +36,7 @@ settingsRouter.patch('/settings', requireDemoUser, async (req, res) => {
   }
 
   if (useDatabase()) {
+    if (body.data.location) await setUserLocation(user.id, body.data.location);
     const updated = await updateSettings(user.id, {
       surpriseOptIn: body.data.openToSupport ?? body.data.surpriseOptIn,
       surprisesOn: body.data.surprisesOn,

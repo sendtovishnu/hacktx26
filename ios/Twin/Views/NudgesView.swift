@@ -206,6 +206,12 @@ struct SuggestionsView: View {
             HStack(alignment: .top, spacing: 12) {
                 IconBadge(systemImage: symbol(for: suggestion.gestureType))
                 VStack(alignment: .leading, spacing: 3) {
+                    if let interest = suggestion.basedOn {
+                        Label(suggestion.sharedInterest == true ? "You both love \(interest.lowercased())" : "\(firstName) loves \(interest.lowercased())",
+                              systemImage: "heart.fill")
+                            .font(Theme.semibold(11))
+                            .foregroundStyle(Theme.accentDeep)
+                    }
                     Text(suggestion.title).font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
                     Text(suggestion.detail).font(Theme.small()).foregroundStyle(Theme.ink2)
                 }

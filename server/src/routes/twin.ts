@@ -16,6 +16,7 @@ import {
   getFriends,
   getLatestSignal,
   getSummaryOverride,
+  getUserLocation,
   insertNudge,
   latestReaction,
   listEmails,
@@ -83,8 +84,9 @@ function planMomentInBackground(args: {
   gestureType: GestureType;
 }): void {
   void (async () => {
-    const near = nearLocation(args.signals, args.person.homeLocation);
-    const [place] = args.gestureType === 'message' ? [] : await findPlaces('coffee', near);
+    const loc = (await getUserLocation(args.person.id)) ?? (await getUserLocation(args.friend.id));
+    const near = nearLocation(args.signals, args.person.homeLocation, loc?.label);
+    const [place] = args.gestureType === 'message' ? [] : await findPlaces('coffee', near, loc ?? undefined);
     const moment = await planMoment({
       friend: args.friend,
       friendEvents: args.friendEvents,

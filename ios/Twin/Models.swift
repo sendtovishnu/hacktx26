@@ -86,6 +86,14 @@ struct SettingsPatch: Encodable {
     var surprisesOn: Bool?
     var phone: String?
     var interests: [String]?
+    var location: LocationPatch?
+}
+
+/// Where you are, for searching nearby. The server keeps it private.
+struct LocationPatch: Encodable {
+    var lat: Double
+    var lng: Double
+    var label: String?
 }
 
 /// A pending or just-accepted request. `user` is always the other person.
@@ -185,6 +193,9 @@ struct Suggestion: Codable, Hashable {
     var place: Place?
     /// What a drop-off brings, like "matcha".
     var item: String?
+    /// The interest it's built on, and whether both people share it.
+    var basedOn: String?
+    var sharedInterest: Bool?
 }
 
 struct Nudge: Codable, Identifiable, Hashable {

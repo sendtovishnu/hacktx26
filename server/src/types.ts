@@ -32,7 +32,11 @@ export interface TwinDecision { friendId: string; message: string; gestureType: 
 // lat/lng from SerpApi, so the app can show the place on a map.
 export interface Place { name: string; address: string; rating?: number; openNow?: boolean; mapsUrl?: string; lat?: number; lng?: number }
 // item: what a drop-off brings, so the fallback note can name it.
-export interface Suggestion { gestureType: GestureType; title: string; detail: string; place?: Place; item?: string }
+// basedOn: the interest it came from; sharedInterest: both people listed it.
+export interface Suggestion {
+  gestureType: GestureType; title: string; detail: string; place?: Place; item?: string;
+  basedOn?: string; sharedInterest?: boolean;
+}
 export interface Nudge {
   id: string; fromUser: User; toFriendId: string; message: string;
   contextLevel: 'closest' | 'close'; status: 'sent' | 'seen' | 'acted';
