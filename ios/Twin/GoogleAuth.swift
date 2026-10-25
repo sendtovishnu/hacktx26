@@ -25,6 +25,11 @@ enum GoogleAuth {
         guard !clientID.isEmpty, !serverClientID.isEmpty else {
             throw APIError.notConfigured("Google sign-in isn't set up in this build. Add GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID, and GOOGLE_WEB_CLIENT_SECRET to server/.env (see README), run make google-check, then rebuild with make sim or make phone.")
         }
+        // GoogleSignIn raises an uncatchable exception (the app crashes) when the reversed client ID
+        // isn't a registered URL scheme, so check it first and fail with a message instead.
+        guard registeredURLSchemes.contains(reversedClientID(clientID)) else {
+            throw APIError.notConfigured("Google sign-in isn't set up in this build: the URL scheme \(reversedClientID(clientID)) is missing. Rebuild with make sim or make phone, or pass GOOGLE_IOS_URL_SCHEME to xcodebuild.")
+        }
         guard let presenter = topViewController() else {
             throw APIError.notConfigured("Could not find a screen to show Google sign-in on.")
         }
@@ -57,6 +62,16 @@ enum GoogleAuth {
         #else
         return false
         #endif
+    }
+
+    /// 1234-abcd.apps.googleusercontent.com -> com.googleusercontent.apps.1234-abcd
+    private static func reversedClientID(_ clientID: String) -> String {
+        clientID.split(separator: ".").reversed().joined(separator: ".")
+    }
+
+    private static var registeredURLSchemes: Set<String> {
+        let types = Bundle.main.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]] ?? []
+        return Set(types.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] })
     }
 
     private static func topViewController() -> UIViewController? {
