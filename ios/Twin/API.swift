@@ -86,7 +86,13 @@ final class APIClient: TwinAPI {
     }
 
     private func send<T: Decodable>(_ request: URLRequest) async throws -> T {
-        let (data, response) = try await session.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch let error as URLError where error.code != .cancelled {
+            throw APIError.notConfigured("Can't reach the Twin server at \(baseURL.host ?? baseURL.absoluteString). Check the server is running and the address in Privacy > Developer.")
+        }
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else {
             throw APIError.http(code, String(data: data, encoding: .utf8) ?? "")

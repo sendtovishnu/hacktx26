@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
     "db:reset": "tsx src/db/reset.ts",
     "test:rules": "tsx src/rules/rules.test.ts"
