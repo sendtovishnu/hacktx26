@@ -216,3 +216,36 @@ export function allowedToNudge(
     supportLevel === 'could_use_support' || supportLevel === 'struggling'
   );
 }
+
+/**
+ * Every block both people are free for at least `minMinutes`, 9am–10pm America/Chicago,
+ * from now through the next `days` days. For planning a hangout: only free time, never events.
+ */
+export function sharedFreeWindows(
+  a: CalendarEvent[],
+  b: CalendarEvent[],
+  opts: { days?: number; minMinutes?: number; now?: Date } = {},
+): { start: string; end: string }[] {
+  const days = opts.days ?? 7;
+  const minMs = (opts.minMinutes ?? 60) * 60_000;
+  const now = (opts.now ?? new Date()).getTime();
+  // Nothing that starts in the next half hour: too soon to plan.
+  const earliest = Math.ceil((now + 30 * 60_000) / (15 * 60_000)) * 15 * 60_000;
+  const today = chicagoYmd(new Date(now));
+  const out: { start: string; end: string }[] = [];
+
+  for (let dayOffset = 0; dayOffset < days; dayOffset++) {
+    const ymd = addChicagoDays(today, dayOffset);
+    const windowStart = Math.max(chicagoWallToUtc(ymd, WINDOW_START_HOUR).getTime(), earliest);
+    const windowEnd = chicagoWallToUtc(ymd, WINDOW_END_HOUR).getTime();
+    if (windowEnd - windowStart < minMs) continue;
+    const freeA = freeWithinWindow(clipToWindow(a, windowStart, windowEnd), windowStart, windowEnd);
+    const freeB = freeWithinWindow(clipToWindow(b, windowStart, windowEnd), windowStart, windowEnd);
+    for (const block of intersectFree(freeA, freeB)) {
+      if (block.end - block.start >= minMs) {
+        out.push({ start: new Date(block.start).toISOString(), end: new Date(block.end).toISOString() });
+      }
+    }
+  }
+  return out;
+}

@@ -44,6 +44,13 @@ export interface Suggestion {
   // A starter note written for this option, so picking #3 doesn't prefill #1's note.
   note?: string;
 }
+// "I just want to hang out": one idea, the time it fits, and a text to suggest it.
+export interface HangoutSuggestion {
+  title: string; detail: string; when: string; start?: string; end?: string; place?: Place;
+  basedOn?: string; sharedInterest?: boolean; message: string;
+}
+// calendars: whether each person has a calendar connected, so the app can say whose times count.
+export interface HangoutPlan { ideas: HangoutSuggestion[]; freeTimes: string[]; calendars: { mine: boolean; theirs: boolean } }
 export interface Nudge {
   id: string; fromUser: User; toFriendId: string; message: string;
   contextLevel: 'closest' | 'close' | 'friend'; status: 'sent' | 'seen' | 'acted';

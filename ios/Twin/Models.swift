@@ -237,6 +237,27 @@ struct Suggestion: Codable, Hashable {
     var note: String?
 }
 
+/// "I just want to hang out": one idea, when it fits both calendars, and a text to suggest it.
+struct HangoutIdea: Codable, Hashable {
+    var title: String
+    var detail: String
+    /// "Sat, 2–4pm", inside a time you're both free.
+    var when: String
+    var place: Place?
+    var basedOn: String?
+    var sharedInterest: Bool?
+    /// A casual text you could send them to suggest it.
+    var message: String
+}
+
+struct HangoutPlan: Codable {
+    struct Calendars: Codable { var mine: Bool; var theirs: Bool }
+    var ideas: [HangoutIdea]
+    /// Times you're both free this week, like "Tue, Oct 27, 4:00 PM – 10:00 PM".
+    var freeTimes: [String]
+    var calendars: Calendars
+}
+
 struct Nudge: Codable, Identifiable, Hashable {
     var id: String
     var fromUser: User

@@ -411,6 +411,25 @@ final class MockAPI: TwinAPI {
         }
     }
 
+    func planHangout(with friendId: String, avoid: [String]) async throws -> HangoutPlan {
+        await delay()
+        let name = user(friendId)?.name.split(separator: " ").first.map(String.init) ?? "them"
+        return HangoutPlan(
+            ideas: [
+                HangoutIdea(title: "Go bouldering", detail: "You both love climbing, and the gym is quiet on weekday evenings.",
+                            when: "Tue, 6–8pm",
+                            place: Place(name: "Austin Bouldering Project", address: "979 Springdale Rd, Austin, TX", rating: 4.8, lat: 30.2669, lng: -97.6948),
+                            basedOn: "Climbing", sharedInterest: true, message: "bouldering tuesday at 6? i'll bring chalk"),
+                HangoutIdea(title: "Grab tacos and walk the lake", detail: "Low-key, and the trail is right there.",
+                            when: "Thu, 7–9pm",
+                            place: Place(name: "Veracruz All Natural", address: "1704 E Cesar Chavez St, Austin, TX", rating: 4.6, lat: 30.2560, lng: -97.7240),
+                            message: "tacos + a lake walk thursday at 7?"),
+            ],
+            freeTimes: ["Tue, 6:00 PM – 10:00 PM", "Thu, 5:30 PM – 10:00 PM", "Sat, 9:00 AM – 10:00 PM"],
+            calendars: .init(mine: true, theirs: name != "them")
+        )
+    }
+
     func searchUsers(_ query: String) async throws -> [User] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
         guard !q.isEmpty else { return [] }

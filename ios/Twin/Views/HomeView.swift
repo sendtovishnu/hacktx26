@@ -277,6 +277,7 @@ struct FriendProfileSheet: View {
     @State private var choice: Tier?
     @State private var saving = false
     @State private var error: String?
+    @State private var planningHangout = false
 
     var body: some View {
         ScrollView {
@@ -291,6 +292,14 @@ struct FriendProfileSheet: View {
                          tone: entry.tier == .closest ? .ember : .neutral)
                 }
                 .padding(.top, 24)
+
+                // Not about a hard week: just time together, planned from both calendars and interests.
+                Button {
+                    planningHangout = true
+                } label: {
+                    Label("I just want to hang out", systemImage: "figure.2")
+                }
+                .buttonStyle(PrimaryButtonStyle(height: 50))
 
                 VStack(alignment: .leading, spacing: 8) {
                     Eyebrow(text: "What \(entry.friend.name) hears about you")
@@ -347,6 +356,11 @@ struct FriendProfileSheet: View {
             .padding(.bottom, 24)
         }
         .screenBackground()
+        .sheet(isPresented: $planningHangout) {
+            HangoutView(friend: entry.friend)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     private func save(_ tier: Tier) async {

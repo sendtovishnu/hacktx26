@@ -50,6 +50,9 @@ protocol TwinAPI: AnyObject {
     func markDelivered(gestureId: String) async throws
     /// Friends whose sharing setting covers the circle they put you in.
     func friendLocations() async throws -> [FriendLocation]
+    /// Ideas and times for just hanging out with a friend, from both calendars and interests.
+    /// `avoid`: titles already shown, so "Brainstorm more" brings new ones.
+    func planHangout(with friendId: String, avoid: [String]) async throws -> HangoutPlan
     func uploadPhoto(_ jpeg: Data) async throws -> User
     func removePhoto() async throws -> User
 }
@@ -284,6 +287,11 @@ final class APIClient: TwinAPI {
     }
 
     func friendLocations() async throws -> [FriendLocation] { try await get("api/friends/locations") }
+
+    func planHangout(with friendId: String, avoid: [String]) async throws -> HangoutPlan {
+        struct Body: Encodable { let avoid: [String] }
+        return try await call("POST", "api/friends/\(friendId)/hangout", body: Body(avoid: avoid))
+    }
 
     func uploadPhoto(_ jpeg: Data) async throws -> User {
         let boundary = "Boundary-\(UUID().uuidString)"
