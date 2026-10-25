@@ -62,7 +62,8 @@ export async function buildSuggestions(input: {
         item: drink,
       });
     }
-    const matchaSpot = matchaPlaces[0] ?? places[1];
+    // Matcha searches often return the same café as coffee; prefer somewhere else.
+    const matchaSpot = matchaPlaces.find((p) => p.name !== places[0]?.name) ?? matchaPlaces[0] ?? places[1];
     if (matchaSpot) {
       list.push({
         gestureType: 'drop_off',
@@ -108,7 +109,8 @@ export async function buildSuggestions(input: {
       detail: nudgeMessage,
     });
     out.push(...dropOffs());
-    const spot: Place = places[0] ?? { name: near, address: near, openNow: true };
+    const taken = new Set(out.map((o) => o.place?.name));
+    const spot: Place = places.find((p) => !taken.has(p.name)) ?? places[0] ?? { name: near, address: near, openNow: true };
     out.push({
       gestureType: 'hangout',
       title: `Plan a hangout at ${spot.name}`,

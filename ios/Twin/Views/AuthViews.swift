@@ -269,6 +269,9 @@ struct SetupView: View {
             .padding(.bottom, 20)
         }
         .screenBackground()
+        .onAppear {
+            if interests.isEmpty { interests = state.me?.interests ?? [] }
+        }
     }
 
     private var settingsPage: some View {
@@ -411,7 +414,7 @@ struct SetupView: View {
             openToSupport = state.me?.surpriseOptIn ?? true
             surprisesOn = state.me?.surprisesEnabled ?? true
             phone = state.me?.phone ?? ""
-            interests = state.me?.interests ?? []
+            // Interests were picked on the page before; reloading them here would wipe the picks.
         }
     }
 

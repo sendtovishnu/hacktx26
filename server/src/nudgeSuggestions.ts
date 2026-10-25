@@ -52,7 +52,11 @@ export async function resolveGestureType(nudgeFromId: string, nudgeToId: string)
 export async function suggestionsForNudge(nudge: Nudge, friend: User): Promise<Suggestion[]> {
   if (useDatabase()) {
     const saved = await getNudgeSuggestions(nudge.id);
-    if (saved?.length) return saved;
+    // Saved before anyone had interests? Rebuild once they do, as long as the friend hasn't acted
+    // (after acting, the saved list must stay put so the chosen index still means the same thing).
+    const generic = saved?.length && !saved.some((s) => s.basedOn);
+    const nowPersonal = (nudge.fromUser.interests?.length ?? 0) > 0;
+    if (saved?.length && !(generic && nowPersonal && nudge.status !== 'acted')) return saved;
   }
   const { gestureType, signals } = await resolveGestureType(nudge.fromUser.id, nudge.toFriendId);
   const wantsSpace = useDatabase() && (await latestReaction(nudge.fromUser.id, friend.id)) === 'space';
