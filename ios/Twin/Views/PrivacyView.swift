@@ -119,7 +119,7 @@ struct PrivacyView: View {
                             await load()
                         }
                     }
-                    .buttonStyle(SoftButtonStyle(height: 44))
+                    .buttonStyle(PrimaryButtonStyle(height: 44))
                     Text("Mock data runs the whole flow on this phone. Turn it off and point at Person A's server: localhost from the simulator, a tunnel URL from a phone.")
                         .font(Theme.small(12))
                         .foregroundStyle(Theme.ink3)

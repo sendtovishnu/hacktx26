@@ -5,7 +5,13 @@ import { decideNudges, extractSignals, filterEmails, planMoment } from '../ai/in
 import {
   deleteEmails,
   deleteSummaryOverride,
+  addTwinEntry,
+  coveredInputs,
   deleteUnactedNudgesFrom,
+  deleteTwinEntry,
+  deleteUnactedNudgesTo,
+  listTwinEntries,
+  markCovered,
   getFriends,
   getLatestSignal,
   getSummaryOverride,
@@ -108,9 +114,12 @@ twinRouter.post('/twin/refresh', requireDemoUser, async (req, res) => {
     if (useDatabase()) {
       const dbEvents = await listEvents(user.id);
       const dbEmails = await listEmails(user.id);
+      const entries = await listTwinEntries(user.id);
       const events = toCalendarEvents(dbEvents);
       const emails = filterEmails(toEmailSnippets(dbEmails));
-      await saveSignals(user.id, await extractSignals(events, emails, checkin));
+      // What they've added to their twin counts like a check-in, every refresh, until they delete it.
+      const told = [checkin, ...entries.map((e) => e.text)].filter((t): t is string => Boolean(t?.trim()));
+      await saveSignals(user.id, await extractSignals(events, emails, told.length ? told.join('" and "') : undefined));
       const signals = await withOverride(user.id, toSignals((await getLatestSignal(user.id))!));
 
       const friendEntries = await getFriends(user.id);
@@ -128,9 +137,21 @@ twinRouter.post('/twin/refresh', requireDemoUser, async (req, res) => {
         });
       }
 
-      let decisions = await decideNudges(user, signals, friends);
+      // A friend hears about each thing once. Only friends with something new are considered,
+      // and a nudge marks everything it was based on as told.
+      const inputKeys = [
+        ...dbEvents.map((e) => `event:${e.title}|${e.start}`),
+        ...dbEmails.map((e) => `email:${e.fromAddr}|${e.subject}|${e.date}`),
+        ...entries.map((e) => `entry:${e.id}`),
+        ...(checkin?.trim() ? [`checkin:${checkin.trim().toLowerCase()}`] : []),
+      ];
+      const covered = await coveredInputs(user.id);
+      const hasNews = (friendId: string) => inputKeys.some((k) => !covered.get(friendId)?.has(k));
+      const candidates = friends.filter((f) => hasNews(f.friend.id));
+
+      let decisions = candidates.length ? await decideNudges(user, signals, candidates) : [];
       decisions = decisions.filter((d) => {
-        const friend = friends.find((f) => f.friend.id === d.friendId);
+        const friend = candidates.find((f) => f.friend.id === d.friendId);
         if (!friend) return false;
         return allowedToNudge(friend.tier, signals.supportLevel);
       });
@@ -143,16 +164,19 @@ twinRouter.post('/twin/refresh', requireDemoUser, async (req, res) => {
         return { ...d, gestureType };
       });
 
-      if (user.paused || !user.surpriseOptIn) {
+      const withdrawn = user.paused || !user.surpriseOptIn || signals.supportLevel === 'doing_fine';
+      if (withdrawn) {
         decisions = [];
+        // Doing fine, or not open to support: open nudges are taken back. Coverage stays, so nothing repeats.
+        await deleteUnactedNudgesFrom(user.id);
       }
 
-      await deleteUnactedNudgesFrom(user.id);
       for (const decision of decisions) {
         const friend = friends.find((f) => f.friend.id === decision.friendId);
         const contextLevel = friend ? canShareContext(friend.tier) : null;
         if (!friend || !contextLevel) continue;
         const nudgeId = `n_${randomUUID()}`;
+        await deleteUnactedNudgesTo(user.id, decision.friendId);
         await insertNudge({
           id: nudgeId,
           fromUserId: user.id,
@@ -163,6 +187,7 @@ twinRouter.post('/twin/refresh', requireDemoUser, async (req, res) => {
           draftNote: decision.surpriseNote,
           reason: decision.reason,
         });
+        await markCovered(user.id, decision.friendId, inputKeys);
         planMomentInBackground({
           nudgeId,
           person: user,
@@ -176,7 +201,9 @@ twinRouter.post('/twin/refresh', requireDemoUser, async (req, res) => {
 
       await deleteEmails(user.id);
 
-      res.json({ signals, nudgesSent: decisions.length });
+      // Nothing new for anyone: friends already know about everything this refresh read.
+      const nothingNew = !withdrawn && inputKeys.length > 0 && candidates.length === 0;
+      res.json({ signals, nudgesSent: decisions.length, nothingNew });
       return;
     }
 
@@ -259,4 +286,35 @@ twinRouter.delete('/twin/summaries', requireDemoUser, async (req, res) => {
   await deleteSummaryOverride(user.id);
   const row = await getLatestSignal(user.id);
   res.json({ signals: row ? toSignals(row) : null });
+});
+
+// Things the person tells their twin directly. Each is read on every refresh until deleted.
+twinRouter.get('/twin/entries', requireDemoUser, async (req, res) => {
+  if (!useDatabase()) {
+    res.json([]);
+    return;
+  }
+  res.json(await listTwinEntries((req as DemoRequest).demoUser.id));
+});
+
+twinRouter.post('/twin/entries', requireDemoUser, async (req, res) => {
+  const body = z.object({ text: z.string().trim().min(1).max(500) }).safeParse(req.body ?? {});
+  if (!body.success) {
+    res.status(400).json({ error: 'Write something for your twin (up to 500 characters).' });
+    return;
+  }
+  if (!useDatabase()) {
+    res.status(501).json({ error: 'Adding to your twin needs the database' });
+    return;
+  }
+  res.status(201).json(await addTwinEntry((req as DemoRequest).demoUser.id, body.data.text));
+});
+
+twinRouter.delete('/twin/entries/:id', requireDemoUser, async (req, res) => {
+  if (!useDatabase()) {
+    res.json({ ok: true });
+    return;
+  }
+  const ok = await deleteTwinEntry((req as DemoRequest).demoUser.id, req.params.id);
+  res.status(ok ? 200 : 404).json(ok ? { ok } : { error: 'Not found' });
 });

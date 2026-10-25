@@ -27,6 +27,9 @@ protocol TwinAPI: AnyObject {
     func ingestGoogle() async throws -> IngestResult
     func ingestICS(data: Data, filename: String) async throws -> IngestResult
     func refreshTwin(checkin: String?) async throws -> TwinRefreshResult
+    func twinEntries() async throws -> [TwinEntry]
+    func addTwinEntry(_ text: String) async throws -> TwinEntry
+    func deleteTwinEntry(_ id: String) async throws
     func twin() async throws -> Signals?
     func updateSummaries(closest: String, close: String, friend: String) async throws -> Signals
     func resetSummaries() async throws -> Signals
@@ -206,6 +209,17 @@ final class APIClient: TwinAPI {
     func refreshTwin(checkin: String?) async throws -> TwinRefreshResult {
         struct Body: Encodable { let checkin: String? }
         return try await call("POST", "api/twin/refresh", body: Body(checkin: checkin))
+    }
+
+    func twinEntries() async throws -> [TwinEntry] { try await get("api/twin/entries") }
+
+    func addTwinEntry(_ text: String) async throws -> TwinEntry {
+        struct Body: Encodable { let text: String }
+        return try await call("POST", "api/twin/entries", body: Body(text: text))
+    }
+
+    func deleteTwinEntry(_ id: String) async throws {
+        let _: Ignored = try await send(makeRequest("DELETE", "api/twin/entries/\(id)"))
     }
 
     func twin() async throws -> Signals? {

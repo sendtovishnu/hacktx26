@@ -315,7 +315,7 @@ struct AddFriendsView: View {
             } label: {
                 Text(contactChannel == .email ? "Email invite" : contactChannel == .sms ? "Text invite" : "Send invite")
             }
-            .buttonStyle(PrimaryButtonStyle())
+            .buttonStyle(PrimaryButtonStyle(height: 46))
             .disabled(contactChannel == nil)
             .opacity(contactChannel == nil ? 0.5 : 1)
 
@@ -323,13 +323,8 @@ struct AddFriendsView: View {
                 sheet = .invite(channel: .link, contact: nil)
             } label: {
                 Label("Share an invite link", systemImage: "square.and.arrow.up")
-                    .font(Theme.button())
-                    .foregroundStyle(Theme.accentDeep)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 46)
-                    .background(Theme.tint, in: Capsule())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PrimaryButtonStyle(height: 46))
         }
         .card()
     }

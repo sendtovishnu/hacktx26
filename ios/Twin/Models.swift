@@ -224,6 +224,15 @@ struct Gesture: Codable, Identifiable, Hashable {
 struct TwinRefreshResult: Codable {
     var signals: Signals
     var nudgesSent: Int
+    /// Every friend already heard about everything this refresh read, so no one was nudged again.
+    var nothingNew: Bool?
+}
+
+/// Something you told your twin directly. It's read on every refresh until you delete it.
+struct TwinEntry: Codable, Identifiable, Hashable {
+    var id: String
+    var text: String
+    var createdAt: String
 }
 
 struct TwinState: Codable {

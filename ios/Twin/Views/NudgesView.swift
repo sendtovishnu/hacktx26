@@ -202,7 +202,6 @@ struct SuggestionsView: View {
     }
 
     private func suggestionCard(_ suggestion: Suggestion, index: Int) -> some View {
-        let primary = index == 0
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
                 IconBadge(systemImage: symbol(for: suggestion.gestureType))
@@ -219,12 +218,12 @@ struct SuggestionsView: View {
             } label: {
                 HStack(spacing: 8) {
                     if sendingIndex == index {
-                        ProgressView().tint(primary ? Theme.onAccent : Theme.accentDeep)
+                        ProgressView().tint(Theme.onAccent)
                     }
                     Text(suggestion.gestureType == .message ? "Write it" : "Do this")
                 }
             }
-            .modifier(SuggestionButtonStyle(primary: primary))
+            .buttonStyle(PrimaryButtonStyle(height: 46))
             .disabled(alreadyActed || sendingIndex != nil)
             .opacity(alreadyActed ? 0.5 : 1)
         }
@@ -311,18 +310,6 @@ struct SuggestionsView: View {
             error = nil
         } catch {
             self.error = error.localizedDescription
-        }
-    }
-}
-
-private struct SuggestionButtonStyle: ViewModifier {
-    let primary: Bool
-
-    func body(content: Content) -> some View {
-        if primary {
-            content.buttonStyle(PrimaryButtonStyle(height: 46))
-        } else {
-            content.buttonStyle(SoftButtonStyle(height: 46))
         }
     }
 }

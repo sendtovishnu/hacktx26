@@ -334,7 +334,7 @@ struct FriendProfileSheet: View {
                         onEdit()
                         withAnimation { editing = true }
                     }
-                    .buttonStyle(SoftButtonStyle(height: 50))
+                    .buttonStyle(PrimaryButtonStyle(height: 50))
                 }
 
                 ErrorText(message: error)

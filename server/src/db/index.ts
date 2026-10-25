@@ -88,7 +88,21 @@ export async function ensureUserExtras(): Promise<void> {
     );
     ALTER TABLE gestures ADD COLUMN IF NOT EXISTS is_surprise BOOLEAN NOT NULL DEFAULT false;
     -- Existing gestures were shown right away, so they count as revealed.
-    ALTER TABLE gestures ADD COLUMN IF NOT EXISTS revealed_at TIMESTAMPTZ DEFAULT now();`);
+    ALTER TABLE gestures ADD COLUMN IF NOT EXISTS revealed_at TIMESTAMPTZ DEFAULT now();
+    -- Things the person typed into their twin; read on every refresh until deleted.
+    CREATE TABLE IF NOT EXISTS twin_entries (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+      text TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    -- Which of the person's inputs (events, emails, entries) a friend has already been nudged about.
+    CREATE TABLE IF NOT EXISTS nudge_coverage (
+      user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+      friend_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+      input_key TEXT NOT NULL,
+      PRIMARY KEY (user_id, friend_id, input_key)
+    );`);
   await ensureTwinExtras();
 }
 
@@ -1054,6 +1068,61 @@ export async function deleteUnactedNudgesFrom(userId: string): Promise<void> {
   await query(
     `DELETE FROM nudges WHERE from_user_id = $1 AND status <> 'acted'`,
     [userId],
+  );
+}
+
+/** Replaces only this friend's open nudge, so friends with nothing new keep theirs untouched. */
+export async function deleteUnactedNudgesTo(userId: string, friendId: string): Promise<void> {
+  await query(
+    `DELETE FROM nudges WHERE from_user_id = $1 AND to_friend_id = $2 AND status <> 'acted'`,
+    [userId, friendId],
+  );
+}
+
+export type TwinEntry = { id: string; text: string; createdAt: string };
+
+export async function listTwinEntries(userId: string): Promise<TwinEntry[]> {
+  const { rows } = await query<{ id: string; text: string; created_at: Date }>(
+    'SELECT id, text, created_at FROM twin_entries WHERE user_id = $1 ORDER BY created_at DESC',
+    [userId],
+  );
+  return rows.map((r) => ({ id: r.id, text: r.text, createdAt: r.created_at.toISOString() }));
+}
+
+export async function addTwinEntry(userId: string, text: string): Promise<TwinEntry> {
+  const id = `te_${randomBytes(6).toString('hex')}`;
+  const { rows } = await query<{ created_at: Date }>(
+    'INSERT INTO twin_entries (id, user_id, text) VALUES ($1, $2, $3) RETURNING created_at',
+    [id, userId, text],
+  );
+  return { id, text, createdAt: rows[0].created_at.toISOString() };
+}
+
+export async function deleteTwinEntry(userId: string, id: string): Promise<boolean> {
+  const { rowCount } = await query('DELETE FROM twin_entries WHERE id = $1 AND user_id = $2', [id, userId]);
+  return (rowCount ?? 0) > 0;
+}
+
+/** Input keys each friend has already heard about from this person's twin. */
+export async function coveredInputs(userId: string): Promise<Map<string, Set<string>>> {
+  const { rows } = await query<{ friend_id: string; input_key: string }>(
+    'SELECT friend_id, input_key FROM nudge_coverage WHERE user_id = $1',
+    [userId],
+  );
+  const out = new Map<string, Set<string>>();
+  for (const r of rows) {
+    if (!out.has(r.friend_id)) out.set(r.friend_id, new Set());
+    out.get(r.friend_id)!.add(r.input_key);
+  }
+  return out;
+}
+
+export async function markCovered(userId: string, friendId: string, keys: string[]): Promise<void> {
+  if (keys.length === 0) return;
+  await query(
+    `INSERT INTO nudge_coverage (user_id, friend_id, input_key)
+     SELECT $1, $2, unnest($3::text[]) ON CONFLICT DO NOTHING`,
+    [userId, friendId, keys],
   );
 }
 

@@ -2,9 +2,12 @@ import SwiftUI
 
 struct TwinView: View {
     @EnvironmentObject private var state: AppState
-    @State private var checkin = ""
+    @State private var entryDraft = ""
+    @State private var entries: [TwinEntry] = []
+    @State private var adding = false
     @State private var signals: Signals?
     @State private var nudgesSent: Int?
+    @State private var nothingNew = false
     @State private var refreshing = false
     @State private var error: String?
     @State private var editingShare = false
@@ -48,16 +51,64 @@ struct TwinView: View {
 
     // MARK: Cards
 
+    private var trimmedEntry: String { entryDraft.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    /// Things you tell your twin stay until you delete them, and are read on every refresh.
     private var checkinCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(signals == nil ? "How's your week going?" : "Anything else on your mind?")
                 .font(Theme.heading(19))
                 .foregroundStyle(Theme.ink)
-            TextField("Optional: a sentence for your twin", text: $checkin, axis: .vertical)
+            Text("Tell your twin what your calendar can't: a hard conversation, a deadline, feeling off. Friends only ever hear the short line above.")
+                .font(Theme.small())
+                .foregroundStyle(Theme.ink2)
+            TextField("e.g. My grandma is in the hospital", text: $entryDraft, axis: .vertical)
                 .font(Theme.body())
-                .lineLimit(1...3)
+                .lineLimit(1...4)
                 .padding(12)
                 .background(Theme.paper, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            Button {
+                Task { await addEntry() }
+            } label: {
+                HStack(spacing: 8) {
+                    if adding { ProgressView().tint(Theme.onAccent) } else { Image(systemName: "plus") }
+                    Text("Add to my twin")
+                }
+            }
+            .buttonStyle(PrimaryButtonStyle(height: 46))
+            .disabled(trimmedEntry.isEmpty || adding)
+            .opacity(trimmedEntry.isEmpty ? 0.5 : 1)
+
+            if !entries.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Eyebrow(text: "Your twin knows")
+                    ForEach(entries) { entry in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "text.bubble")
+                                .foregroundStyle(Theme.ink3)
+                                .padding(.top, 2)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(entry.text).font(Theme.body()).foregroundStyle(Theme.ink)
+                                Text(DateText.ago(entry.createdAt)).font(Theme.small(11)).foregroundStyle(Theme.ink3)
+                            }
+                            Spacer(minLength: 0)
+                            Button {
+                                Task { await deleteEntry(entry) }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.ink3)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Remove")
+                        }
+                        .padding(10)
+                        .background(Theme.paper, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                }
+                .padding(.top, 4)
+            }
+
+            Rectangle().fill(Theme.cream).frame(height: 1).padding(.vertical, 2)
+
             Button {
                 Task { await refresh() }
             } label: {
@@ -301,7 +352,9 @@ struct TwinView: View {
         HStack(spacing: 10) {
             Image(systemName: "sparkles")
                 .foregroundStyle(Theme.sageInk)
-            Text("Got it. Your twin is keeping you company this week.")
+            Text(nothingNew
+                 ? "Nothing new since your friends last heard, so no one was nudged again. Add something above if there's more going on."
+                 : "Got it. Your twin is keeping you company this week.")
                 .font(Theme.semibold(14))
                 .foregroundStyle(Theme.sageInk)
         }
@@ -342,9 +395,32 @@ struct TwinView: View {
         nudgesSent = nil
         do {
             signals = try await state.api.twin()
+            entries = try await state.api.twinEntries()
             error = nil
         } catch {
             signals = nil
+            self.error = error.localizedDescription
+        }
+    }
+
+    private func addEntry() async {
+        adding = true
+        defer { adding = false }
+        do {
+            let entry = try await state.api.addTwinEntry(trimmedEntry)
+            withAnimation(.snappy) { entries.insert(entry, at: 0) }
+            entryDraft = ""
+            error = nil
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    private func deleteEntry(_ entry: TwinEntry) async {
+        do {
+            try await state.api.deleteTwinEntry(entry.id)
+            withAnimation(.snappy) { entries.removeAll { $0.id == entry.id } }
+        } catch {
             self.error = error.localizedDescription
         }
     }
@@ -353,13 +429,13 @@ struct TwinView: View {
         refreshing = true
         defer { refreshing = false }
         do {
-            let text = checkin.trimmingCharacters(in: .whitespacesAndNewlines)
-            let result = try await state.api.refreshTwin(checkin: text.isEmpty ? nil : text)
+            // Saved entries are read on the server; nothing extra rides along with the refresh.
+            let result = try await state.api.refreshTwin(checkin: nil)
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 signals = result.signals
                 nudgesSent = result.nudgesSent
+                nothingNew = result.nothingNew ?? false
             }
-            checkin = ""
             error = nil
         } catch {
             self.error = error.localizedDescription

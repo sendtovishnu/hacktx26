@@ -297,7 +297,7 @@ struct SetupView: View {
                                 Notifier.requestPermission()
                                 withAnimation { notificationsAsked = true }
                             }
-                            .buttonStyle(SoftButtonStyle(height: 44))
+                            .buttonStyle(PrimaryButtonStyle(height: 44))
                         }
                     }
                     .card()

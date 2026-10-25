@@ -1,4 +1,8 @@
 -- Idempotent reset: drop dependents first via CASCADE.
+-- Created at server startup (ensureUserExtras); dropped here so a reset starts clean.
+DROP TABLE IF EXISTS nudge_coverage CASCADE;
+DROP TABLE IF EXISTS twin_entries CASCADE;
+DROP TABLE IF EXISTS user_photos CASCADE;
 DROP TABLE IF EXISTS invites CASCADE;
 DROP TABLE IF EXISTS friend_requests CASCADE;
 DROP TABLE IF EXISTS sessions CASCADE;

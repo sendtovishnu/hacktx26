@@ -149,10 +149,10 @@ enum Theme {
     }
 
     // MARK: Type
-    // Nunito's rounded letters keep the app warm; friends' notes are in Caveat, so they read handwritten.
+    // Nunito's rounded letters keep the app warm; friends' notes are typed in Paper Mono, like a letter.
     enum Typeface {
         static let display = "Nunito-ExtraBold"
-        static let handwritten = "CaveatRoman-Regular"
+        static let note = "PaperMono-Regular"
         static let sans = "Nunito-Regular"
         static let sansMedium = "Nunito-SemiBold"
         static let sansSemiBold = "Nunito-SemiBold"
@@ -162,8 +162,8 @@ enum Theme {
     static func display(_ size: CGFloat = 44) -> Font { .custom(Typeface.display, size: size) }
     static func title(_ size: CGFloat = 34) -> Font { .custom(Typeface.display, size: size) }
     static func heading(_ size: CGFloat = 22) -> Font { .custom(Typeface.display, size: size) }
-    /// Caveat runs small, so notes are drawn about a third larger than the size asked for.
-    static func quote(_ size: CGFloat = 22) -> Font { .custom(Typeface.handwritten, size: size * 1.35) }
+    /// Friends' notes. A monospace runs wide, so it's drawn a little smaller than the size asked for.
+    static func quote(_ size: CGFloat = 22) -> Font { .custom(Typeface.note, size: size * 0.82) }
     static func body(_ size: CGFloat = 15) -> Font { .custom(Typeface.sans, size: size) }
     static func bodyStrong(_ size: CGFloat = 16) -> Font { .custom(Typeface.sansBold, size: size) }
     static func small(_ size: CGFloat = 13) -> Font { .custom(Typeface.sans, size: size) }
@@ -278,6 +278,8 @@ struct PrimaryButtonStyle: ButtonStyle {
     }
 }
 
+/// Only for Cancel next to a filled button. Every button that does something uses PrimaryButtonStyle,
+/// so buttons that do the same kind of thing always look the same.
 struct SoftButtonStyle: ButtonStyle {
     var height: CGFloat = 54
 

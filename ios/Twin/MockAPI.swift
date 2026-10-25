@@ -47,6 +47,9 @@ final class MockAPI: TwinAPI {
     /// Sofia has already asked Maya, so the demo shows a request waiting.
     private var requests = [MockRequest(id: "fr_demo_sofia", from: "u_sofia", to: "u_maya", fromTier: .close)]
     private var invites: [String: (from: String, tier: Tier, redeemedBy: String?)] = [:]
+    private var entriesByUser: [String: [TwinEntry]] = [:]
+    /// "from>to" -> inputs that friend was already nudged about.
+    private var coverage: [String: Set<String>] = [:]
 
     init(userId: String) {
         currentUserId = userId
@@ -237,15 +240,39 @@ final class MockAPI: TwinAPI {
         return IngestResult(events: max(count, 0), emails: nil)
     }
 
+    func twinEntries() async throws -> [TwinEntry] {
+        entriesByUser[currentUserId] ?? []
+    }
+
+    func addTwinEntry(_ text: String) async throws -> TwinEntry {
+        await delay()
+        let entry = TwinEntry(id: "te_\(UUID().uuidString.prefix(8))", text: text, createdAt: DateText.now())
+        entriesByUser[currentUserId, default: []].insert(entry, at: 0)
+        return entry
+    }
+
+    func deleteTwinEntry(_ id: String) async throws {
+        entriesByUser[currentUserId]?.removeAll { $0.id == id }
+    }
+
     func refreshTwin(checkin: String?) async throws -> TwinRefreshResult {
         try? await Task.sleep(nanoseconds: 1_200_000_000) // feels like the twin is thinking
         let me = try currentUser()
-        let signals = signalsFor(me, checkin: checkin)
+        let entries = entriesByUser[me.id] ?? []
+        let told = ([checkin] + entries.map(\.text)).compactMap { $0 }.joined(separator: ". ")
+        let signals = signalsFor(me, checkin: told.isEmpty ? nil : told)
         signalsByUser[me.id] = signals
 
+        // Same rule as the server: the week itself, plus each entry, is news to a friend only once.
+        let inputKeys = Set(["week"] + entries.map(\.id))
         var sent = 0
+        var anyNews = false
         if signals.supportLevel != .doingFine && me.surpriseOptIn && !me.paused {
             for entry in friendEntries(of: me.id) {
+                let pair = "\(me.id)>\(entry.friend.id)"
+                guard !inputKeys.isSubset(of: coverage[pair, default: []]) else { continue }
+                anyNews = true
+                coverage[pair, default: []].formUnion(inputKeys)
                 // One open nudge per pair: replace any earlier unanswered one.
                 nudgeList.removeAll { $0.fromUser.id == me.id && $0.toFriendId == entry.friend.id && $0.status != "acted" }
                 let nudge = Nudge(
@@ -262,7 +289,7 @@ final class MockAPI: TwinAPI {
                 sent += 1
             }
         }
-        return TwinRefreshResult(signals: signals, nudgesSent: sent)
+        return TwinRefreshResult(signals: signals, nudgesSent: sent, nothingNew: !anyNews && sent == 0 && signals.supportLevel != .doingFine)
     }
 
     func twin() async throws -> Signals? {

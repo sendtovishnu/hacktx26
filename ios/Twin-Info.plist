@@ -32,8 +32,8 @@
 		<string>Nunito-SemiBold.ttf</string>
 		<string>Nunito-Bold.ttf</string>
 		<string>Nunito-ExtraBold.ttf</string>
-		<string>Caveat-Regular.ttf</string>
-		<string>Caveat-Bold.ttf</string>
+		<string>PaperMono-Regular.ttf</string>
+		<string>PaperMono-Medium.ttf</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
