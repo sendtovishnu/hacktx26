@@ -127,7 +127,7 @@ struct AccountView: View {
                                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.sage)
                             }
                         }
-                        Text("Friends who have you in their contacts find you by this number.")
+                        Text("Friends can call or text you from Twin, and find you from their contacts.")
                             .font(Theme.small(12))
                             .foregroundStyle(Theme.ink3)
                     }

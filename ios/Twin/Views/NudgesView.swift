@@ -94,6 +94,7 @@ private struct NudgeRow: View {
 
 struct SuggestionsView: View {
     @EnvironmentObject private var state: AppState
+    @Environment(\.openURL) private var openURL
     let nudge: Nudge
 
     @State private var suggestions: [Suggestion] = []
@@ -145,6 +146,8 @@ struct SuggestionsView: View {
 
                 Eyebrow(text: "Ways to help")
 
+                reachOutCard
+
                 if loading {
                     ProgressView().tint(Theme.accent).frame(maxWidth: .infinity).padding()
                 }
@@ -173,6 +176,48 @@ struct SuggestionsView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+    }
+
+    /// The phone number they added to Twin, ready to dial; nil if there isn't one.
+    private var phone: String? {
+        guard let raw = nudge.fromUser.phone else { return nil }
+        let dialable = raw.filter { $0.isNumber || $0 == "+" }
+        return dialable.filter(\.isNumber).count >= 7 ? dialable : nil
+    }
+
+    /// Always an option, whatever's going on: call or text them right from Twin.
+    private var reachOutCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                IconBadge(systemImage: "phone.bubble")
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Call or text \(firstName)").font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
+                    Text(phone == nil
+                         ? "\(firstName) hasn\u{2019}t added a phone number to Twin yet."
+                         : "Sometimes just hearing from you is the best help.")
+                        .font(Theme.small())
+                        .foregroundStyle(Theme.ink2)
+                }
+            }
+            HStack(spacing: 10) {
+                Button {
+                    if let phone, let url = URL(string: "tel://\(phone)") { openURL(url) }
+                } label: {
+                    Label("Call", systemImage: "phone.fill")
+                }
+                .buttonStyle(PrimaryButtonStyle(height: 46))
+                Button {
+                    // Opens Messages already addressed to them.
+                    if let phone, let url = URL(string: "sms:\(phone)") { openURL(url) }
+                } label: {
+                    Label("Text", systemImage: "message.fill")
+                }
+                .buttonStyle(PrimaryButtonStyle(height: 46))
+            }
+            .disabled(phone == nil)
+            .opacity(phone == nil ? 0.5 : 1)
+        }
+        .card()
     }
 
     /// Twin to twin: your own twin read your calendar and found when you can show up.

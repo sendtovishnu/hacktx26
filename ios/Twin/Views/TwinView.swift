@@ -68,7 +68,7 @@ struct TwinView: View {
             Text("Tell your twin what your calendar can't: a hard conversation, a deadline, feeling off. Friends only ever hear the short line above.")
                 .font(Theme.small())
                 .foregroundStyle(Theme.ink2)
-            TextField("e.g. My grandma is in the hospital", text: $entryDraft, axis: .vertical)
+            TextField("Something your twin doesn\u{2019}t know yet", text: $entryDraft, axis: .vertical)
                 .font(Theme.body())
                 .lineLimit(1...4)
                 .padding(12)

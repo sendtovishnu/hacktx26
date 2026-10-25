@@ -347,7 +347,7 @@ struct SetupView: View {
                             IconBadge(systemImage: "phone")
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Your phone number").font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
-                                Text("Optional. Friends who have you in their contacts can find you on Twin.")
+                                Text("So friends can call or text you straight from Twin, and find you from their contacts.")
                                     .font(Theme.small())
                                     .foregroundStyle(Theme.ink2)
                             }
