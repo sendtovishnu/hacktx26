@@ -15,6 +15,8 @@ export type Idea = {
   interest: string;
   /** True when both people listed that interest. */
   shared: boolean;
+  /** Starter note from the friend about this idea, which they edit before sending. */
+  note: string;
 };
 
 const ideasSchema = z.array(
@@ -25,6 +27,7 @@ const ideasSchema = z.array(
     detail: z.string().min(1).max(160),
     search: z.string().min(2).max(60),
     item: z.string().max(40).nullish(),
+    note: z.string().min(1).max(220),
   }),
 );
 
@@ -79,7 +82,8 @@ Return JSON only, an array of 3:
   "title": "Go bouldering together" (under 8 words, no place name),
   "detail": "one short sentence on why it fits ${first(helped)}",
   "search": "bouldering gym",
-  "item": "a small succulent" (what's brought, for drop-offs; null for hangouts)}]`;
+  "item": "a small succulent" (what's brought, for drop-offs; null for hangouts),
+  "note": "a 1-2 sentence note ${first(friend)} could send ${first(helped)} about THIS idea: casual, warm, lowercase, no signature, no names"}]`;
 
   const raw = await generateJSON<z.infer<typeof ideasSchema>>(prompt, ideasSchema, [], 'gemini');
   // Keep only ideas that really come from the focus interests.
@@ -95,5 +99,6 @@ Return JSON only, an array of 3:
       item: i.item ?? undefined,
       interest: byName.get(norm(i.interest))!,
       shared: shared.length > 0,
+      note: i.note,
     }));
 }

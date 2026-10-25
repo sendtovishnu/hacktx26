@@ -61,9 +61,11 @@ gesturesRouter.post('/gestures', requireDemoUser, async (req, res) => {
 
       const id = `g_${randomUUID()}`;
       const deliveredAt = new Date().toISOString();
+      // The friend's words, else the note written for the option they picked.
       const note =
         body.data.note ??
-        (await getNudgeDraftNote(nudgeId)) ??
+        choice.note ??
+        (choice.gestureType === 'message' ? await getNudgeDraftNote(nudgeId) : null) ??
         surpriseNoteFor(choice, nudge.fromUser);
       await insertGesture({
         id,

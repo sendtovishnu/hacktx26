@@ -426,7 +426,10 @@ struct ComposeNoteSheet: View {
         }
         .screenBackground()
         .onAppear {
-            if note.isEmpty { note = nudge.draftNote ?? "" }
+            // The note written for this option; the twin's general draft only fits a plain note.
+            if note.isEmpty {
+                note = suggestion.note ?? (suggestion.gestureType == .message ? nudge.draftNote ?? "" : "")
+            }
             focused = true
         }
     }

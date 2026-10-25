@@ -137,7 +137,7 @@ export async function buildSuggestions(input: {
     }
   }
 
-  return out.slice(0, 4);
+  return out.slice(0, 4).map((s) => ({ ...s, note: s.note ?? surpriseNoteFor(s, fromUser) }));
 }
 
 /** Surprise note shown to the helped user after a gesture is sent. */
@@ -194,6 +194,7 @@ export async function buildPersonalSuggestions(input: {
       item: idea.item,
       basedOn: idea.interest,
       sharedInterest: idea.shared,
+      note: idea.note,
     }));
   if (personal.length < 2) return buildSuggestions(input);
 

@@ -39,6 +39,8 @@ export interface Place { name: string; address: string; rating?: number; openNow
 export interface Suggestion {
   gestureType: GestureType; title: string; detail: string; place?: Place; item?: string;
   basedOn?: string; sharedInterest?: boolean;
+  // A starter note written for this option, so picking #3 doesn't prefill #1's note.
+  note?: string;
 }
 export interface Nudge {
   id: string; fromUser: User; toFriendId: string; message: string;

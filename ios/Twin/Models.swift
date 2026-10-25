@@ -233,6 +233,8 @@ struct Suggestion: Codable, Hashable {
     /// The interest it's built on, and whether both people share it.
     var basedOn: String?
     var sharedInterest: Bool?
+    /// A starter note written for this option, so the composer matches what was picked.
+    var note: String?
 }
 
 struct Nudge: Codable, Identifiable, Hashable {

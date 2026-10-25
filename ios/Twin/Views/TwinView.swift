@@ -77,12 +77,12 @@ struct TwinView: View {
                 Task { await addEntry() }
             } label: {
                 HStack(spacing: 8) {
-                    if adding { ProgressView().tint(Theme.onAccent) } else { Image(systemName: "plus") }
-                    Text("Add to my twin")
+                    if adding || refreshing { ProgressView().tint(Theme.onAccent) } else { Image(systemName: "plus") }
+                    Text(adding ? "Adding\u{2026}" : refreshing ? "Updating your twin\u{2026}" : "Add to my twin")
                 }
             }
             .buttonStyle(PrimaryButtonStyle(height: 46))
-            .disabled(trimmedEntry.isEmpty || adding)
+            .disabled(trimmedEntry.isEmpty || adding || refreshing)
             .opacity(trimmedEntry.isEmpty ? 0.5 : 1)
 
             if !waiting.isEmpty {
@@ -458,7 +458,11 @@ struct TwinView: View {
             error = nil
         } catch {
             self.error = error.localizedDescription
+            return
         }
+        adding = false
+        // One tap: adding also refreshes, so the entry lands in "This week" right away.
+        await refresh()
     }
 
     private func deleteEntry(_ entry: TwinEntry) async {
