@@ -269,7 +269,7 @@ final class AppState: ObservableObject {
         }
         for request in requests.accepted where fresh.contains("accepted-\(request.id)") {
             Notifier.post(title: "\(request.user.name) accepted your friend request",
-                          body: "You're now friends on Twin.",
+                          body: "You're now friends on CloseMates.",
                           route: .friends, id: "accepted-\(request.id)")
             reloadToken += 1
         }

@@ -402,7 +402,7 @@ struct TwinMark: View {
             context.fill(lens, with: .color(Theme.accentDeep))
         }
         .frame(width: width, height: width * 40 / 64)
-        .accessibilityLabel("Twin")
+        .accessibilityLabel("CloseMates")
     }
 }
 

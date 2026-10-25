@@ -139,7 +139,7 @@ final class MockAPI: TwinAPI {
     func sendFriendRequest(to userId: String, tier: Tier) async throws -> SendRequestResult {
         await delay()
         let me = currentUserId
-        guard let other = user(userId), userId != me else { throw APIError.notConfigured("That person isn't on Twin.") }
+        guard let other = user(userId), userId != me else { throw APIError.notConfigured("That person isn't on CloseMates.") }
         guard !links.contains(where: { $0.userId == me && $0.friendId == userId }) else {
             throw APIError.notConfigured("You're already friends.")
         }
@@ -190,7 +190,7 @@ final class MockAPI: TwinAPI {
         invites[code] = (from: currentUserId, tier: tier, redeemedBy: nil)
         let url = "https://twin.example/i/\(code)"
         let firstName = user(currentUserId)?.name.split(separator: " ").first.map(String.init) ?? "A friend"
-        return Invite(code: code, url: url, message: "\(firstName) wants to be friends on Twin, so you can show up for each other. Join here: \(url)")
+        return Invite(code: code, url: url, message: "\(firstName) wants to be friends on CloseMates, so you can show up for each other. Join here: \(url)")
     }
 
     func redeemInvite(_ code: String) async throws -> RedeemResult {

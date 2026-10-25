@@ -125,7 +125,7 @@ struct FriendsMapView: View {
         do {
             // Turning it on needs a location to share; ask for permission if we haven't.
             if option != .nobody, await state.shareLocation(askIfNeeded: true) == nil {
-                error = "Twin can't see your location. Allow it in Settings > Twin > Location."
+                error = "CloseMates can't see your location. Allow it in Settings > CloseMates > Location."
                 return
             }
             state.updateMe(try await state.api.updateSettings(SettingsPatch(locationSharing: option.rawValue)))

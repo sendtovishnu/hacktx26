@@ -14,7 +14,7 @@ enum ContactsReader {
         let store = CNContactStore()
         let granted = try await store.requestAccess(for: .contacts)
         guard granted else {
-            throw APIError.notConfigured("Twin can't see your contacts. Allow it in Settings > Twin > Contacts.")
+            throw APIError.notConfigured("CloseMates can't see your contacts. Allow it in Settings > CloseMates > Contacts.")
         }
         // Enumerating is synchronous and can take a moment on big address books.
         return try await Task.detached(priority: .userInitiated) {

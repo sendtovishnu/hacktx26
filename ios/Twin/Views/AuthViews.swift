@@ -26,7 +26,7 @@ struct WelcomeView: View {
                     .font(Theme.title(38))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Theme.ink)
-                Text("Twin keeps up with your week and quietly lets your closest people know when you could use them.")
+                Text("CloseMates keeps up with your week and quietly lets your closest people know when you could use them.")
                     .font(Theme.body(17))
                     .lineSpacing(3)
                     .multilineTextAlignment(.center)
@@ -69,7 +69,7 @@ struct SignInView: View {
                 VStack(spacing: 18) {
                     TwinMark(width: 76)
                     VStack(spacing: 8) {
-                        Text("Welcome to Twin")
+                        Text("Welcome to CloseMates")
                             .font(Theme.title())
                             .foregroundStyle(Theme.ink)
                         Text("Sign in to see your people.")
@@ -178,7 +178,7 @@ struct SignInView: View {
                 }
                 .padding(.top, 4)
 
-                Text("Twin only ever shares what you choose. You can change that anytime in Privacy.")
+                Text("CloseMates only ever shares what you choose. You can change that anytime in Privacy.")
                     .font(Theme.small(12))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Theme.ink3)
@@ -347,7 +347,7 @@ struct SetupView: View {
                             IconBadge(systemImage: "phone")
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Your phone number").font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
-                                Text("So friends can call or text you straight from Twin, and find you from their contacts.")
+                                Text("So friends can call or text you straight from CloseMates, and find you from their contacts.")
                                     .font(Theme.small())
                                     .foregroundStyle(Theme.ink2)
                             }

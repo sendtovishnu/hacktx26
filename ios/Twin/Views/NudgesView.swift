@@ -193,7 +193,7 @@ struct SuggestionsView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Call or text \(firstName)").font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
                     Text(phone == nil
-                         ? "\(firstName) hasn\u{2019}t added a phone number to Twin yet."
+                         ? "\(firstName) hasn\u{2019}t added a phone number to CloseMates yet."
                          : "Sometimes just hearing from you is the best help.")
                         .font(Theme.small())
                         .foregroundStyle(Theme.ink2)

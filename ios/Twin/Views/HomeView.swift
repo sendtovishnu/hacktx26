@@ -41,7 +41,7 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                ScreenHeader(eyebrow: state.me?.name ?? "You", title: "Your circles")
+                ScreenHeader(eyebrow: state.me?.name ?? "You", title: "Your friend circles")
 
                 OrbitView(me: state.me, friends: friends) { entry in
                     selected = entry

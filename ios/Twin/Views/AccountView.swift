@@ -127,7 +127,7 @@ struct AccountView: View {
                                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.sage)
                             }
                         }
-                        Text("Friends can call or text you from Twin, and find you from their contacts.")
+                        Text("Friends can call or text you from CloseMates, and find you from their contacts.")
                             .font(Theme.small(12))
                             .foregroundStyle(Theme.ink3)
                     }
@@ -243,7 +243,7 @@ struct AccountView: View {
                         .font(Theme.semibold(16))
                 }
             }
-            .confirmationDialog("Sign out of Twin?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+            .confirmationDialog("Sign out of CloseMates?", isPresented: $confirmSignOut, titleVisibility: .visible) {
                 Button("Sign out", role: .destructive) {
                     dismiss()
                     state.signOut()

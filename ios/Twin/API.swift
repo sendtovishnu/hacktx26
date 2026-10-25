@@ -112,7 +112,7 @@ final class APIClient: TwinAPI {
         do {
             (data, response) = try await session.data(for: request)
         } catch let error as URLError where error.code != .cancelled {
-            throw APIError.notConfigured("Can't reach the Twin server at \(baseURL.host ?? baseURL.absoluteString). Check the server is running and the address in Privacy > Developer.")
+            throw APIError.notConfigured("Can't reach the CloseMates server at \(baseURL.host ?? baseURL.absoluteString). Check the server is running and the address in Privacy > Developer.")
         }
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(code) else {

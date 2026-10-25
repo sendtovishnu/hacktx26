@@ -66,12 +66,12 @@ struct AddFriendsView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Eyebrow(text: trimmedQuery.isEmpty ? "People you may know" : "On Twin")
+                        Eyebrow(text: trimmedQuery.isEmpty ? "People you may know" : "On CloseMates")
                         Spacer()
                         if searching { ProgressView().controlSize(.small) }
                     }
                     if people.isEmpty && !searching {
-                        Text(trimmedQuery.isEmpty ? "You're friends with everyone we could find. Invite more below." : "No one on Twin matches \u{201C}\(trimmedQuery)\u{201D}. Invite them below.")
+                        Text(trimmedQuery.isEmpty ? "You're friends with everyone we could find. Invite more below." : "No one on CloseMates matches \u{201C}\(trimmedQuery)\u{201D}. Invite them below.")
                             .font(Theme.small())
                             .foregroundStyle(Theme.ink2)
                             .padding(.vertical, 8)
@@ -271,7 +271,7 @@ struct AddFriendsView: View {
             IconBadge(systemImage: "person.crop.rectangle.stack")
             VStack(alignment: .leading, spacing: 2) {
                 Text("Find friends from your contacts").font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
-                Text("See who's already on Twin. Your contacts aren't stored.")
+                Text("See who's already on CloseMates. Your contacts aren't stored.")
                     .font(Theme.small(12))
                     .foregroundStyle(Theme.ink2)
             }
@@ -302,7 +302,7 @@ struct AddFriendsView: View {
                 IconBadge(systemImage: "paperplane")
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Invite a friend").font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
-                    Text("Not on Twin yet? Text or email them a link. When they join, your request is waiting.")
+                    Text("Not on CloseMates yet? Text or email them a link. When they join, your request is waiting.")
                         .font(Theme.small())
                         .foregroundStyle(Theme.ink2)
                 }
@@ -386,7 +386,7 @@ struct AddFriendsView: View {
             if let url = URL(string: "sms:\(address)&body=\(body)") { openURL(url) }
             self.contact = ""
         case .email:
-            let subject = "Join me on Twin".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+            let subject = "Join me on CloseMates".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
             if let url = URL(string: "mailto:\(address)?subject=\(subject)&body=\(body)") { openURL(url) }
             self.contact = ""
             status = "When \(contact ?? "they") signs in with that email, your request will be waiting."
@@ -405,7 +405,7 @@ struct AddFriendsView: View {
         do {
             try await state.syncContacts()
             let count = state.contactMatches.count
-            status = count == 0 ? "None of your contacts are on Twin yet. Invite them below." : "Found \(count) \(count == 1 ? "contact" : "contacts") on Twin."
+            status = count == 0 ? "None of your contacts are on CloseMates yet. Invite them below." : "Found \(count) \(count == 1 ? "contact" : "contacts") on CloseMates."
             error = nil
         } catch {
             self.error = error.localizedDescription

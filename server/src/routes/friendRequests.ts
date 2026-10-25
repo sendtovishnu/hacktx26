@@ -39,7 +39,7 @@ friendRequestsRouter.post('/friend-requests', requireDemoUser, async (req, res) 
   }
   const result = await sendFriendRequest(user.id, body.data.toUserId, body.data.tier);
   if (result.status === 'not_found') {
-    res.status(404).json({ error: 'That person isn\'t on Twin.' });
+    res.status(404).json({ error: 'That person isn\'t on CloseMates.' });
     return;
   }
   if (result.status === 'already_friends') {
@@ -103,7 +103,7 @@ friendRequestsRouter.post('/invites', requireDemoUser, async (req, res) => {
   res.status(201).json({
     code,
     url,
-    message: `${firstName} wants to be friends on Twin, so you can show up for each other. Join here: ${url}`,
+    message: `${firstName} wants to be friends on CloseMates, so you can show up for each other. Join here: ${url}`,
   });
 });
 
@@ -129,11 +129,11 @@ inviteLandingRouter.get('/i/:code', async (req, res) => {
   const code = req.params.code;
   const inviter = useDatabase() && /^[\w-]{4,32}$/.test(code) ? await getInviter(code) : null;
   const appLink = `twin://invite/${encodeURIComponent(code)}`;
-  const title = inviter ? `${escapeHtml(inviter.name.split(' ')[0])} invited you to Twin` : 'Twin invite';
+  const title = inviter ? `${escapeHtml(inviter.name.split(' ')[0])} invited you to CloseMates` : 'CloseMates invite';
   const body = inviter
-    ? `<p>Twin quietly lets your closest people know when you could use them, with a real way to help.</p>
-       <p><a class="button" href="${appLink}">Open in Twin</a></p>
-       <p class="muted">Don't have Twin yet? Ask ${escapeHtml(inviter.name.split(' ')[0])} to get you on the beta, then come back and tap the button.</p>`
+    ? `<p>CloseMates quietly lets your closest people know when you could use them, with a real way to help.</p>
+       <p><a class="button" href="${appLink}">Open in CloseMates</a></p>
+       <p class="muted">Don't have CloseMates yet? Ask ${escapeHtml(inviter.name.split(' ')[0])} to get you on the beta, then come back and tap the button.</p>`
     : `<p>This invite link isn't valid anymore. Ask your friend for a new one.</p>`;
   res.status(inviter ? 200 : 404).type('html').send(`<!doctype html>
 <html lang="en">

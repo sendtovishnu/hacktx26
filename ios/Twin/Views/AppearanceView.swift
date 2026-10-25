@@ -32,7 +32,7 @@ struct AppearanceView: View {
                     }
                     .card()
 
-                    Text("Every color is kept soft on purpose. Twin should feel calm, never loud.")
+                    Text("Every color is kept soft on purpose. CloseMates should feel calm, never loud.")
                         .font(Theme.small(12))
                         .foregroundStyle(Theme.ink3)
                         .padding(.horizontal, 4)
