@@ -42,6 +42,15 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Twin suggests places near you, and shows you on the Map only to the circles you choose.</string>
+	<!-- Background App Refresh: iOS wakes Twin now and then to check for nudges and surprises. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.sendtovishnu.hacktx26.twin.refresh</string>
+	</array>
 	<key>NSContactsUsageDescription</key>
 	<string>Twin checks which of your contacts are on Twin so you can add them. Your contacts aren't stored.</string>
 	<key>NSLocalNetworkUsageDescription</key>

@@ -43,9 +43,10 @@ final class AppState: ObservableObject {
     @Published private(set) var reloadToken = 0
 
     // Remembered per demo user, so switching users on one phone still surfaces new surprises.
-    private var seenNudgeIdsByUser: [String: Set<String>] = [:]
-    private var seenSurpriseIdsByUser: [String: Set<String>] = [:]
-    private var seenRequestIdsByUser: [String: Set<String>] = [:]
+    /// Which tab is showing, so tapping a notification can switch to the right one.
+    @Published var selectedTab: AppTab = .home
+    /// The Nudges tab's navigation, so a notification can open one nudge directly.
+    @Published var nudgePath: [Nudge] = []
     /// An invite opened before signing in waits here until there's an account to redeem it for.
     private var pendingInviteCode: String? {
         get { UserDefaults.standard.string(forKey: "pendingInviteCode") }
@@ -107,6 +108,14 @@ final class AppState: ObservableObject {
         startPolling()
         if contactsConnected { try? await syncContacts() }
         await shareLocation(askIfNeeded: false)
+        // Notifications are how nudges and surprises reach you; iOS only shows this prompt the first time.
+        if isSignedIn && hasCompletedSetup { Notifier.requestPermission() }
+        // Notification taps from now on go straight to their screen, and so does one that opened the app.
+        Notifier.onOpen = { [weak self] route in Task { await self?.open(route) } }
+        if let route = Notifier.pendingRoute {
+            Notifier.pendingRoute = nil
+            await open(route)
+        }
     }
 
     func reloadUsers() async {
@@ -249,20 +258,47 @@ final class AppState: ObservableObject {
     }
 
     private func handle(requests: FriendRequests) {
-        let user = demoUserId
-        let seen = seenRequestIdsByUser[user, default: []]
         friendRequests = requests
         // Accepted ones get a separate key, since the same id was first seen as an outgoing request.
         let ids = requests.incoming.map(\.id) + requests.accepted.map { "accepted-\($0.id)" }
-        seenRequestIdsByUser[user, default: []].formUnion(ids)
-        guard hasLoadedOnce else { return }
-        for request in requests.incoming where !seen.contains(request.id) {
-            Notifier.post(title: "\(request.user.name) sent you a friend request", body: "Accept to add each other on Twin.")
+        let fresh = SeenStore.fresh(ids, kind: "requests", user: demoUserId)
+        for request in requests.incoming where fresh.contains(request.id) {
+            Notifier.post(title: "\(request.user.name) sent you a friend request",
+                          body: "Tap to accept and choose their circle.",
+                          route: .friends, id: "request-\(request.id)")
         }
-        for request in requests.accepted where !seen.contains("accepted-\(request.id)") {
-            Notifier.post(title: "\(request.user.name) accepted your friend request", body: "You're now friends on Twin.")
+        for request in requests.accepted where fresh.contains("accepted-\(request.id)") {
+            Notifier.post(title: "\(request.user.name) accepted your friend request",
+                          body: "You're now friends on Twin.",
+                          route: .friends, id: "accepted-\(request.id)")
             reloadToken += 1
         }
+    }
+
+    // MARK: Opening from a notification
+
+    /// Takes you to what a notification was about: a nudge, a surprise to rate, or Friends.
+    func open(_ route: NotificationRoute) async {
+        guard isSignedIn else { return }
+        switch route {
+        case .friends:
+            selectedTab = .friends
+        case .nudge(let id):
+            selectedTab = .nudges
+            if !nudges.contains(where: { $0.id == id }) { await poll() }
+            if let nudge = nudges.first(where: { $0.id == id }) { nudgePath = [nudge] }
+        case .surprise(let id):
+            selectedTab = .nudges
+            if !surprises.contains(where: { $0.id == id }) { await poll() }
+            // The surprise screen is where you rate it: ❤️ or "I needed space".
+            activeSurprise = surprises.first { $0.id == id }
+        }
+    }
+
+    /// Wakes up now and then in the background (Background App Refresh) to notify about anything new.
+    func backgroundCheck() async {
+        guard isSignedIn else { return }
+        await poll()
     }
 
     /// A revealed surprise is a surprise; otherwise the person is told what's coming.
@@ -343,26 +379,24 @@ final class AppState: ObservableObject {
     }
 
     private func handle(newNudges: [Nudge], newSurprises: [Gesture]) {
-        let user = demoUserId
-        let seenNudges = seenNudgeIdsByUser[user, default: []]
-        let seenSurprises = seenSurpriseIdsByUser[user, default: []]
-        let freshNudges = newNudges.filter { !seenNudges.contains($0.id) }
-        let freshSurprises = newSurprises.filter { !seenSurprises.contains($0.id) }
-
         nudges = newNudges.sorted { $0.createdAt > $1.createdAt }
         surprises = newSurprises.sorted { $0.deliveredAt > $1.deliveredAt }
-        seenNudgeIdsByUser[user, default: []].formUnion(newNudges.map(\.id))
-        seenSurpriseIdsByUser[user, default: []].formUnion(newSurprises.map(\.id))
 
-        // The first load after launch or a user switch is history, not news.
-        if hasLoadedOnce {
-            for nudge in freshNudges {
-                Notifier.post(title: "\(nudge.fromUser.name) could use you", body: nudge.message)
-            }
-            if let surprise = freshSurprises.first {
-                Notifier.post(title: AppState.headline(for: surprise), body: surprise.note)
-                activeSurprise = surprise
-            }
+        // Remembered across launches, so anything that came in while the app was closed is still news.
+        let freshNudges = SeenStore.fresh(newNudges.map(\.id), kind: "nudges", user: demoUserId)
+        let freshSurprises = SeenStore.fresh(newSurprises.map(\.id), kind: "surprises", user: demoUserId)
+        for nudge in newNudges where freshNudges.contains(nudge.id) {
+            Notifier.post(title: "\(nudge.fromUser.name) could use you", body: nudge.message,
+                          route: .nudge(nudge.id), id: "nudge-\(nudge.id)")
+        }
+        for surprise in newSurprises where freshSurprises.contains(surprise.id) {
+            // A surprise shows up once the friend marked it done: time to say how it landed.
+            let body = surprise.surprise == true ? "\(surprise.note)\nTap to tell your twin how it landed." : surprise.note
+            Notifier.post(title: AppState.headline(for: surprise), body: body,
+                          route: .surprise(surprise.id), id: "surprise-\(surprise.id)")
+        }
+        if let first = newSurprises.first(where: { freshSurprises.contains($0.id) }) {
+            activeSurprise = first
         }
         hasLoadedOnce = true
     }
@@ -383,13 +417,32 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
 
-    static func post(title: String, body: String) {
+    /// `route` is where tapping it leads; `id` keeps the same item from notifying twice.
+    static func post(title: String, body: String, route: NotificationRoute, id: String) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
-        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        content.userInfo = ["route": route.rawValue]
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
+    }
+
+    /// A tap that came in before the app was ready (it was closed), picked up once it is.
+    @MainActor static var pendingRoute: NotificationRoute?
+    @MainActor static var onOpen: ((NotificationRoute) -> Void)?
+
+    // Tapping a notification: go to the thing it's about.
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        let raw = response.notification.request.content.userInfo["route"] as? String
+        Task { @MainActor in
+            if let route = raw.flatMap(NotificationRoute.init(rawValue:)) {
+                if let onOpen = Notifier.onOpen { onOpen(route) } else { Notifier.pendingRoute = route }
+            }
+            completionHandler()
+        }
     }
 
     // Show banners even while the app is open, which is the whole demo.
@@ -397,5 +450,47 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .sound, .list])
+    }
+}
+
+enum AppTab: Hashable { case map, friends, home, twin, nudges }
+
+/// Where a notification leads, stored in it as text ("nudge:n_123").
+enum NotificationRoute: Equatable {
+    case nudge(String)
+    case surprise(String)
+    case friends
+
+    var rawValue: String {
+        switch self {
+        case .nudge(let id): return "nudge:\(id)"
+        case .surprise(let id): return "surprise:\(id)"
+        case .friends: return "friends"
+        }
+    }
+
+    init?(rawValue: String) {
+        let parts = rawValue.split(separator: ":", maxSplits: 1).map(String.init)
+        switch (parts.first, parts.count) {
+        case ("nudge", 2): self = .nudge(parts[1])
+        case ("surprise", 2): self = .surprise(parts[1])
+        case ("friends", _): self = .friends
+        default: return nil
+        }
+    }
+}
+
+/// Ids already notified about, per account and kind, kept across launches. The first look at an
+/// account just records what's there, so old items aren't announced as new.
+enum SeenStore {
+    static func fresh(_ ids: [String], kind: String, user: String) -> Set<String> {
+        let key = "seen.\(user).\(kind)"
+        let defaults = UserDefaults.standard
+        let firstLook = defaults.object(forKey: key) == nil
+        var seen = Set(defaults.stringArray(forKey: key) ?? [])
+        let fresh = firstLook ? [] : Set(ids).subtracting(seen)
+        seen.formUnion(ids)
+        defaults.set(Array(seen), forKey: key)
+        return fresh
     }
 }

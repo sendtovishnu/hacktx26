@@ -1,3 +1,4 @@
+import BackgroundTasks
 import SwiftUI
 #if canImport(GoogleSignIn)
 import GoogleSignIn
@@ -6,6 +7,8 @@ import GoogleSignIn
 @main
 struct TwinApp: App {
     @StateObject private var state = AppState()
+    @Environment(\.scenePhase) private var scenePhase
+    static let refreshTaskId = "com.sendtovishnu.hacktx26.twin.refresh"
 
     init() {
         Notifier.install()
@@ -25,6 +28,21 @@ struct TwinApp: App {
                     }
                 }
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { TwinApp.scheduleRefresh() }
+        }
+        // iOS wakes the app now and then to check for nudges and surprises and notify about them.
+        // (Real push needs a paid Apple Developer account; this works with a free one.)
+        .backgroundTask(.appRefresh(TwinApp.refreshTaskId)) {
+            TwinApp.scheduleRefresh()
+            await state.backgroundCheck()
+        }
+    }
+
+    static func scheduleRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: refreshTaskId)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
+        try? BGTaskScheduler.shared.submit(request)
     }
 }
 
@@ -88,30 +106,27 @@ struct RootView: View {
         }
     }
 
-    private enum Tab: Hashable { case map, friends, home, twin, nudges }
-    @State private var tab: Tab = .home
-
     // Home sits in the middle and is where the app opens. Five tabs is all an iPhone tab bar
     // fits, so Privacy lives in Account (your photo, top right).
     private var tabs: some View {
-        TabView(selection: $tab) {
+        TabView(selection: $state.selectedTab) {
             NavigationStack { FriendsMapView() }
                 .tabItem { Label("Map", systemImage: "map.fill") }
-                .tag(Tab.map)
+                .tag(AppTab.map)
             NavigationStack { AddFriendsView() }
                 .tabItem { Label("Friends", systemImage: "person.2.fill") }
                 .badge(state.friendRequests.incoming.count)
-                .tag(Tab.friends)
+                .tag(AppTab.friends)
             NavigationStack { HomeView() }
                 .tabItem { Label("Home", systemImage: "house.fill") }
-                .tag(Tab.home)
+                .tag(AppTab.home)
             NavigationStack { TwinView() }
                 .tabItem { Label("Twin", systemImage: "sparkles") }
-                .tag(Tab.twin)
-            NavigationStack { NudgesView() }
+                .tag(AppTab.twin)
+            NavigationStack(path: $state.nudgePath) { NudgesView() }
                 .tabItem { Label("Nudges", systemImage: "bell.fill") }
                 .badge(openNudgeCount)
-                .tag(Tab.nudges)
+                .tag(AppTab.nudges)
         }
     }
 }
