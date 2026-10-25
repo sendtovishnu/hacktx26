@@ -211,14 +211,17 @@ struct AddFriendsView: View {
             Avatar(user: person, size: 42)
             VStack(alignment: .leading, spacing: 2) {
                 Text(person.name).font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
+                // Their phone or email, so you can tell it's the person you meant before tapping Add.
+                Text(identifier(for: person))
+                    .font(Theme.small(12))
+                    .foregroundStyle(Theme.ink2)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
                 if let contactName = state.contactMatches[person.id] {
                     Label(contactName == person.name ? "In your contacts" : "In your contacts as \(contactName)", systemImage: "person.crop.circle.badge.checkmark")
-                        .font(Theme.small(12))
+                        .font(Theme.small(11))
                         .foregroundStyle(Theme.sageInk)
-                } else {
-                    Text(person.homeLocation.components(separatedBy: ",").first ?? "")
-                        .font(Theme.small(12))
-                        .foregroundStyle(Theme.ink2)
+                        .lineLimit(1)
                 }
             }
             Spacer()
@@ -238,6 +241,15 @@ struct AddFriendsView: View {
             }
         }
         .padding(.vertical, 8)
+    }
+
+    /// The phone number when you searched with digits (or they're in your contacts), otherwise the email.
+    private func identifier(for person: User) -> String {
+        let typedDigits = trimmedQuery.filter(\.isNumber).count >= 3 && !trimmedQuery.contains("@")
+        if let phone = person.phone, !phone.isEmpty, typedDigits || state.contactMatches[person.id] != nil {
+            return phone
+        }
+        return person.email.isEmpty ? (person.phone ?? "") : person.email
     }
 
     private func actionButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
