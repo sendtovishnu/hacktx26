@@ -15,6 +15,7 @@ settingsRouter.patch('/settings', requireDemoUser, async (req, res) => {
       openToSupport: z.boolean().optional(),
       surprisesOn: z.boolean().optional(),
       phone: z.string().trim().max(30).nullable().optional(),
+      interests: z.array(z.string().trim().min(1).max(40)).max(40).optional(),
       paused: z.boolean().optional(),
       preferences: z
         .object({
@@ -35,6 +36,7 @@ settingsRouter.patch('/settings', requireDemoUser, async (req, res) => {
       surpriseOptIn: body.data.openToSupport ?? body.data.surpriseOptIn,
       surprisesOn: body.data.surprisesOn,
       phone: body.data.phone === '' ? null : body.data.phone,
+      interests: body.data.interests,
       paused: body.data.paused,
       homeLocation: body.data.homeLocation,
       preferences: body.data.preferences,

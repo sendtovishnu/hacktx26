@@ -3,22 +3,16 @@ import { Router } from 'express';
 import { z } from 'zod';
 import {
   getGesture,
-  getLatestSignal,
   getNudge,
   getNudgeDraftNote,
   insertGesture,
-  latestReaction,
   revealGesture,
-  listEvents,
-  respectReaction,
-  toCalendarEvents,
-  toSignals,
   updateNudgeStatus,
   useDatabase,
 } from '../db/index.js';
 import { getNudgeById, getUserById } from '../mocks.js';
 import { requireDemoUser, type DemoRequest } from '../middleware.js';
-import { gestureFor, sharedFreeMinutes } from '../rules/index.js';
+import { suggestionsForNudge } from '../nudgeSuggestions.js';
 import {
   buildSuggestions,
   nearLocation,
@@ -57,28 +51,8 @@ gesturesRouter.post('/gestures', requireDemoUser, async (req, res) => {
         return;
       }
 
-      const signalRow = await getLatestSignal(nudge.fromUser.id);
-      const signals: Signals | null = signalRow ? toSignals(signalRow) : null;
-      const mins = signals
-        ? sharedFreeMinutes(
-            toCalendarEvents(await listEvents(nudge.fromUser.id)),
-            toCalendarEvents(await listEvents(nudge.toFriendId)),
-          )
-        : 0;
-      // Must match what GET /nudges/:id/suggestions offered, so the index points at the same choice.
-      const gestureType: GestureType = signals
-        ? await respectReaction(nudge.fromUser.id, user.id, gestureFor(signals, mins))
-        : 'message';
-      const near = nearLocation(signals, nudge.fromUser.homeLocation);
-      // Same inputs as GET /nudges/:id/suggestions, so the index points at the same choice.
-      const wantsSpace = (await latestReaction(nudge.fromUser.id, user.id)) === 'space';
-      const suggestions = await buildSuggestions({
-        fromUser: nudge.fromUser,
-        gestureType,
-        near,
-        nudgeMessage: nudge.message,
-        wantsSpace,
-      });
+      // The saved list GET /nudges/:id/suggestions showed, so the index points at the same choice.
+      const suggestions = await suggestionsForNudge(nudge, user);
       const choice = suggestions[suggestionIndex];
       if (!choice) {
         res.status(400).json({ error: 'Invalid suggestionIndex' });

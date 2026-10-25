@@ -28,12 +28,11 @@
 	</array>
 	<key>UIAppFonts</key>
 	<array>
-		<string>Nunito-Regular.ttf</string>
-		<string>Nunito-SemiBold.ttf</string>
-		<string>Nunito-Bold.ttf</string>
-		<string>Nunito-ExtraBold.ttf</string>
 		<string>PaperMono-Regular.ttf</string>
 		<string>PaperMono-Medium.ttf</string>
+		<string>PaperMono-SemiBold.ttf</string>
+		<string>PaperMono-Bold.ttf</string>
+		<string>PaperMono-ExtraBold.ttf</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>

@@ -15,6 +15,7 @@ struct AccountView: View {
     @State private var confirmSignOut = false
     @State private var phone = ""
     @State private var phoneSaved = false
+    @State private var editingInterests = false
 
     var body: some View {
         NavigationStack {
@@ -31,6 +32,28 @@ struct AccountView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 8)
+
+                    Button {
+                        editingInterests = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            IconBadge(systemImage: "heart.text.square")
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Your interests").font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
+                                Text(interestSummary)
+                                    .font(Theme.small())
+                                    .foregroundStyle(Theme.ink2)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Theme.ink3)
+                        }
+                        .contentShape(Rectangle())
+                        .card()
+                    }
+                    .buttonStyle(.plain)
 
                     VStack(alignment: .leading, spacing: 10) {
                         Eyebrow(text: "Phone number")
@@ -173,6 +196,11 @@ struct AccountView: View {
                 Task { await importICS(result) }
             }
             .task { await loadSources() }
+            .sheet(isPresented: $editingInterests) {
+                InterestsSheet()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+            }
             .pullToRefresh {
                 await state.reloadMe()
                 await loadSources()
@@ -235,6 +263,11 @@ struct AccountView: View {
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    private var interestSummary: String {
+        let picks = state.me?.interests ?? []
+        return picks.isEmpty ? "Pick a few so suggestions fit you" : picks.joined(separator: ", ")
     }
 
     private func savePhone() async {

@@ -219,8 +219,57 @@ struct SetupView: View {
     @State private var phone = ""
     @State private var notificationsAsked = false
     @State private var saving = false
+    @State private var step = 0
+    @State private var interests: [String] = []
 
     var body: some View {
+        ZStack {
+            if step == 0 {
+                interestsPage
+                    .transition(.asymmetric(insertion: .opacity, removal: .move(edge: .leading).combined(with: .opacity)))
+            } else {
+                settingsPage
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: step)
+    }
+
+    /// First thing a new account sees, like Instagram's interest picker.
+    private var interestsPage: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Eyebrow(text: "Hi \(state.me?.name.split(separator: " ").first.map(String.init) ?? "there")")
+                        Text("What are you into?")
+                            .font(Theme.title(30))
+                            .foregroundStyle(Theme.ink)
+                        Text("Pick as many as you like. When a friend wants to show up for you, your twin suggests things you'd actually love.")
+                            .font(Theme.small())
+                            .foregroundStyle(Theme.ink2)
+                    }
+                    .padding(.top, 40)
+                    InterestsPicker(selection: $interests)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
+            }
+            .scrollDismissesKeyboard(.interactively)
+
+            Button {
+                step = 1
+            } label: {
+                Text(interests.isEmpty ? "Skip for now" : "Continue with \(interests.count) picked")
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+        }
+        .screenBackground()
+    }
+
+    private var settingsPage: some View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
@@ -329,6 +378,7 @@ struct SetupView: View {
             openToSupport = state.me?.surpriseOptIn ?? true
             surprisesOn = state.me?.surprisesEnabled ?? true
             phone = state.me?.phone ?? ""
+            interests = state.me?.interests ?? []
         }
     }
 
@@ -348,7 +398,7 @@ struct SetupView: View {
         saving = true
         defer { saving = false }
         let trimmed = phone.trimmingCharacters(in: .whitespaces)
-        let patch = SettingsPatch(openToSupport: openToSupport, surprisesOn: surprisesOn, phone: trimmed.isEmpty ? nil : trimmed)
+        let patch = SettingsPatch(openToSupport: openToSupport, surprisesOn: surprisesOn, phone: trimmed.isEmpty ? nil : trimmed, interests: interests)
         if let user = try? await state.api.updateSettings(patch) {
             state.updateMe(user)
         }

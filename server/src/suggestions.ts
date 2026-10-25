@@ -1,4 +1,5 @@
-import { findPlaces } from './places/index.js';
+import { planIdeas } from './ai/ideas.js';
+import { findPlaces, searchPlaces } from './places/index.js';
 import type {
   GestureType,
   Place,
@@ -151,4 +152,43 @@ export function surpriseNoteFor(
     case 'message':
       return "Rooting for you this week. You're going to do great.";
   }
+}
+
+/**
+ * Suggestions built around both people's interests: the twin picks ideas, SerpApi finds a real
+ * place for each. Falls back to the coffee and matcha set when there are no interests or
+ * nothing is found. A note is always the last option.
+ */
+export async function buildPersonalSuggestions(input: {
+  fromUser: User;
+  friend: User;
+  gestureType: GestureType;
+  near: string;
+  nudgeMessage: string;
+  wantsSpace?: boolean;
+}): Promise<Suggestion[]> {
+  const { fromUser, friend, gestureType, near, nudgeMessage, wantsSpace } = input;
+  if (wantsSpace) return buildSuggestions(input);
+
+  const ideas = await planIdeas({ helped: fromUser, friend, prefer: gestureType, nudgeMessage, near });
+  const found = await Promise.all(
+    ideas.map(async (idea) => ({ idea, place: (await searchPlaces(idea.search, near))[0] })),
+  );
+  const personal: Suggestion[] = found
+    .filter((f): f is typeof f & { place: Place } => Boolean(f.place))
+    .map(({ idea, place }) => ({
+      gestureType: idea.gestureType,
+      title: idea.title,
+      detail: idea.detail,
+      place,
+      item: idea.item,
+    }));
+  if (personal.length < 2) return buildSuggestions(input);
+
+  // What fits the week goes first: a drop-off when there's no shared free time.
+  personal.sort((a, b) => Number(b.gestureType === gestureType) - Number(a.gestureType === gestureType));
+  return [
+    ...personal,
+    { gestureType: 'message', title: `Send ${fromUser.name} a note`, detail: nudgeMessage },
+  ];
 }

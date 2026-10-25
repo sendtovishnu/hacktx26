@@ -28,7 +28,8 @@ ${JSON.stringify(events.map((e) => ({ ...e, day: dayOf(e.start) })))}
 
 Recent emails (sender, subject, snippet):
 ${JSON.stringify(emails.map(({ from, subject, snippet }) => ({ from, subject, snippet })))}
-${checkin ? `\nThe student's own check-in: "${checkin}"` : ''}`;
+${checkin ? `\nWhat the student told their twin directly: "${checkin}"
+Each thing they told you must appear in "stressors" (short, in plain words; "when" is today if no date is given), alongside anything from the calendar and email.` : ''}`;
 }
 
 export function twinPrompt(user: User, signals: Signals, friends: TwinFriendInput[]) {
@@ -36,6 +37,7 @@ export function twinPrompt(user: User, signals: Signals, friends: TwinFriendInpu
   const prefs = [
     user.preferences.coffeeOrder && `coffee order: ${user.preferences.coffeeOrder}`,
     user.preferences.likes === 'company' ? 'prefers company over space' : 'prefers space over company',
+    user.interests?.length && `into: ${user.interests.join(', ')}`,
   ].filter(Boolean).join(', ');
 
   const friendLines = friends.map((f) => ({

@@ -149,27 +149,29 @@ enum Theme {
     }
 
     // MARK: Type
-    // Nunito's rounded letters keep the app warm; friends' notes are typed in Paper Mono, like a letter.
+    // Paper Mono everywhere: a typed, letter-like voice that suits notes between friends.
     enum Typeface {
-        static let display = "Nunito-ExtraBold"
+        static let display = "PaperMono-Bold"
         static let note = "PaperMono-Regular"
-        static let sans = "Nunito-Regular"
-        static let sansMedium = "Nunito-SemiBold"
-        static let sansSemiBold = "Nunito-SemiBold"
-        static let sansBold = "Nunito-Bold"
+        static let sans = "PaperMono-Regular"
+        static let sansMedium = "PaperMono-Medium"
+        static let sansSemiBold = "PaperMono-SemiBold"
+        static let sansBold = "PaperMono-Bold"
     }
 
-    static func display(_ size: CGFloat = 44) -> Font { .custom(Typeface.display, size: size) }
-    static func title(_ size: CGFloat = 34) -> Font { .custom(Typeface.display, size: size) }
-    static func heading(_ size: CGFloat = 22) -> Font { .custom(Typeface.display, size: size) }
-    /// Friends' notes. A monospace runs wide, so it's drawn a little smaller than the size asked for.
+    /// A monospace is wider than a proportional font, so every size is drawn a little smaller.
+    private static let mono: CGFloat = 0.9
+
+    static func display(_ size: CGFloat = 44) -> Font { .custom(Typeface.display, size: size * mono) }
+    static func title(_ size: CGFloat = 34) -> Font { .custom(Typeface.display, size: size * mono) }
+    static func heading(_ size: CGFloat = 22) -> Font { .custom(Typeface.display, size: size * mono) }
     static func quote(_ size: CGFloat = 22) -> Font { .custom(Typeface.note, size: size * 0.82) }
-    static func body(_ size: CGFloat = 15) -> Font { .custom(Typeface.sans, size: size) }
-    static func bodyStrong(_ size: CGFloat = 16) -> Font { .custom(Typeface.sansBold, size: size) }
-    static func small(_ size: CGFloat = 13) -> Font { .custom(Typeface.sans, size: size) }
-    static func label(_ size: CGFloat = 12) -> Font { .custom(Typeface.sansBold, size: size) }
-    static func button(_ size: CGFloat = 16) -> Font { .custom(Typeface.sansSemiBold, size: size) }
-    static func semibold(_ size: CGFloat) -> Font { .custom(Typeface.sansSemiBold, size: size) }
+    static func body(_ size: CGFloat = 15) -> Font { .custom(Typeface.sans, size: size * mono) }
+    static func bodyStrong(_ size: CGFloat = 16) -> Font { .custom(Typeface.sansSemiBold, size: size * mono) }
+    static func small(_ size: CGFloat = 13) -> Font { .custom(Typeface.sans, size: size * mono) }
+    static func label(_ size: CGFloat = 12) -> Font { .custom(Typeface.sansBold, size: size * mono) }
+    static func button(_ size: CGFloat = 16) -> Font { .custom(Typeface.sansSemiBold, size: size * mono) }
+    static func semibold(_ size: CGFloat) -> Font { .custom(Typeface.sansSemiBold, size: size * mono) }
 }
 
 extension Color {

@@ -7,6 +7,7 @@ import type {
   Nudge,
   Place,
   Signals,
+  Suggestion,
   SupportLevel,
   Tier,
   User,
@@ -41,6 +42,7 @@ type UserRow = {
   surprises_on?: boolean;
   phone?: string | null;
   photo_updated_at?: Date | null;
+  interests?: string[] | string | null;
 };
 
 type FriendshipRow = UserRow & {
@@ -67,6 +69,7 @@ export function mapUser(row: UserRow): User {
     openToSupport: row.surprise_opt_in,
     surprisesOn: row.surprises_on ?? true,
     phone: row.phone ?? undefined,
+    interests: typeof row.interests === 'string' ? (JSON.parse(row.interests) as string[]) : row.interests ?? [],
     // Relative, so it works behind any host; the app resolves it against its server URL.
     photoUrl: row.photo_updated_at ? `/api/photos/${row.id}?v=${row.photo_updated_at.getTime()}` : undefined,
   };
@@ -82,6 +85,9 @@ export async function ensureUserExtras(): Promise<void> {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS surprises_on BOOLEAN NOT NULL DEFAULT true;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_updated_at TIMESTAMPTZ;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS interests JSONB NOT NULL DEFAULT '[]'::jsonb;
+    -- Built once per nudge (they come from an AI), so "Do this" #2 is always the same choice.
+    ALTER TABLE nudges ADD COLUMN IF NOT EXISTS suggestions JSONB;
     CREATE TABLE IF NOT EXISTS user_photos (
       user_id TEXT PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
       jpeg BYTEA NOT NULL
@@ -96,6 +102,8 @@ export async function ensureUserExtras(): Promise<void> {
       text TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+    -- Set by a refresh, so the app moves an entry from "waiting" into the twin's read of the week.
+    ALTER TABLE twin_entries ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
     -- Which of the person's inputs (events, emails, entries) a friend has already been nudged about.
     CREATE TABLE IF NOT EXISTS nudge_coverage (
       user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -495,6 +503,7 @@ export type SettingsPatch = {
   surpriseOptIn?: boolean;
   surprisesOn?: boolean;
   phone?: string | null;
+  interests?: string[];
   paused?: boolean;
   homeLocation?: string;
   preferences?: Partial<User['preferences']>;
@@ -512,6 +521,7 @@ export async function updateSettings(
     surpriseOptIn: patch.surpriseOptIn ?? current.surpriseOptIn,
     surprisesOn: patch.surprisesOn ?? current.surprisesOn ?? true,
     phone: patch.phone === undefined ? current.phone : patch.phone ?? undefined,
+    interests: patch.interests ?? current.interests ?? [],
     paused: patch.paused ?? current.paused,
     homeLocation: patch.homeLocation ?? current.homeLocation,
     preferences: {
@@ -527,7 +537,8 @@ export async function updateSettings(
          home_location = $4,
          preferences = $5::jsonb,
          surprises_on = $6,
-         phone = $7
+         phone = $7,
+         interests = $8::jsonb
      WHERE id = $1
      RETURNING *`,
     [
@@ -538,6 +549,7 @@ export async function updateSettings(
       JSON.stringify(next.preferences),
       next.surprisesOn,
       next.phone ?? null,
+      JSON.stringify(next.interests ?? []),
     ],
   );
   return rows[0] ? mapUser(rows[0]) : null;
@@ -1079,14 +1091,32 @@ export async function deleteUnactedNudgesTo(userId: string, friendId: string): P
   );
 }
 
-export type TwinEntry = { id: string; text: string; createdAt: string };
+export type TwinEntry = { id: string; text: string; createdAt: string; readAt?: string };
 
 export async function listTwinEntries(userId: string): Promise<TwinEntry[]> {
-  const { rows } = await query<{ id: string; text: string; created_at: Date }>(
-    'SELECT id, text, created_at FROM twin_entries WHERE user_id = $1 ORDER BY created_at DESC',
+  const { rows } = await query<{ id: string; text: string; created_at: Date; read_at: Date | null }>(
+    'SELECT id, text, created_at, read_at FROM twin_entries WHERE user_id = $1 ORDER BY created_at DESC',
     [userId],
   );
-  return rows.map((r) => ({ id: r.id, text: r.text, createdAt: r.created_at.toISOString() }));
+  return rows.map((r) => ({
+    id: r.id,
+    text: r.text,
+    createdAt: r.created_at.toISOString(),
+    readAt: r.read_at?.toISOString(),
+  }));
+}
+
+export async function markEntriesRead(userId: string): Promise<void> {
+  await query('UPDATE twin_entries SET read_at = now() WHERE user_id = $1 AND read_at IS NULL', [userId]);
+}
+
+export async function getNudgeSuggestions(nudgeId: string): Promise<Suggestion[] | null> {
+  const { rows } = await query<{ suggestions: Suggestion[] | null }>('SELECT suggestions FROM nudges WHERE id = $1', [nudgeId]);
+  return rows[0]?.suggestions ?? null;
+}
+
+export async function setNudgeSuggestions(nudgeId: string, suggestions: Suggestion[]): Promise<void> {
+  await query('UPDATE nudges SET suggestions = $2::jsonb WHERE id = $1', [nudgeId, JSON.stringify(suggestions)]);
 }
 
 export async function addTwinEntry(userId: string, text: string): Promise<TwinEntry> {

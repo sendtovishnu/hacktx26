@@ -1,52 +1,10 @@
 import { Router } from 'express';
-import {
-  getLatestSignal,
-  getNudge,
-  latestReaction,
-  listEvents,
-  listNudgesToUser,
-  respectReaction,
-  toCalendarEvents,
-  toSignals,
-  useDatabase,
-} from '../db/index.js';
-import { getNudgeById, getNudgesFor, getSignalsFor } from '../mocks.js';
+import { getNudge, listNudgesToUser, useDatabase } from '../db/index.js';
+import { getNudgeById, getNudgesFor } from '../mocks.js';
 import { requireDemoUser, type DemoRequest } from '../middleware.js';
-import { gestureFor, sharedFreeMinutes } from '../rules/index.js';
-import { buildSuggestions, nearLocation } from '../suggestions.js';
-import type { GestureType, Signals } from '../types.js';
+import { suggestionsForNudge } from '../nudgeSuggestions.js';
 
 export const nudgesRouter = Router();
-
-async function resolveGestureType(nudgeFromId: string, nudgeToId: string): Promise<{
-  gestureType: GestureType;
-  signals: Signals | null;
-}> {
-  if (useDatabase()) {
-    const row = await getLatestSignal(nudgeFromId);
-    const signals = row ? toSignals(row) : null;
-    if (!signals) {
-      return { gestureType: 'message', signals: null };
-    }
-    const mins = sharedFreeMinutes(
-      toCalendarEvents(await listEvents(nudgeFromId)),
-      toCalendarEvents(await listEvents(nudgeToId)),
-    );
-    return {
-      gestureType: await respectReaction(nudgeFromId, nudgeToId, gestureFor(signals, mins)),
-      signals,
-    };
-  }
-
-  const signals = getSignalsFor(nudgeFromId);
-  if (!signals) return { gestureType: 'message', signals: null };
-  // Mock demo: Maya→Jay has no shared free block → drop_off under crunch.
-  const mins =
-    nudgeFromId === 'u_maya' && nudgeToId === 'u_jay'
-      ? 0
-      : sharedFreeMinutes([], []);
-  return { gestureType: gestureFor(signals, mins), signals };
-}
 
 nudgesRouter.get('/nudges', requireDemoUser, async (req, res) => {
   const user = (req as DemoRequest).demoUser;
@@ -73,20 +31,7 @@ nudgesRouter.get('/nudges/:id/suggestions', requireDemoUser, async (req, res) =>
   }
 
   try {
-    const { gestureType, signals } = await resolveGestureType(
-      nudge.fromUser.id,
-      nudge.toFriendId,
-    );
-    const near = nearLocation(signals, nudge.fromUser.homeLocation);
-    const wantsSpace = useDatabase() && (await latestReaction(nudge.fromUser.id, user.id)) === 'space';
-    const suggestions = await buildSuggestions({
-      fromUser: nudge.fromUser,
-      gestureType,
-      near,
-      nudgeMessage: nudge.message,
-      wantsSpace,
-    });
-    res.json(suggestions);
+    res.json(await suggestionsForNudge(nudge, user));
   } catch (err) {
     res.status(500).json({
       error: err instanceof Error ? err.message : 'Suggestions failed',

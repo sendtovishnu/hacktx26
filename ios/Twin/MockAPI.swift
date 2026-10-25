@@ -260,8 +260,15 @@ final class MockAPI: TwinAPI {
         let me = try currentUser()
         let entries = entriesByUser[me.id] ?? []
         let told = ([checkin] + entries.map(\.text)).compactMap { $0 }.joined(separator: ". ")
-        let signals = signalsFor(me, checkin: told.isEmpty ? nil : told)
+        var signals = signalsFor(me, checkin: told.isEmpty ? nil : told)
+        // Like the server: what you told your twin joins its read of the week.
+        let today = String(DateText.now().prefix(10))
+        for entry in entries where !signals.stressors.contains(where: { $0.what == entry.text }) {
+            signals.stressors.append(Stressor(what: entry.text, when: today))
+        }
         signalsByUser[me.id] = signals
+        let now = DateText.now()
+        entriesByUser[me.id] = entries.map { var e = $0; e.readAt = e.readAt ?? now; return e }
 
         // Same rule as the server: the week itself, plus each entry, is news to a friend only once.
         let inputKeys = Set(["week"] + entries.map(\.id))
@@ -426,6 +433,7 @@ final class MockAPI: TwinAPI {
         if let open = patch.openToSupport { allUsers[index].surpriseOptIn = open }
         if let surprisesOn = patch.surprisesOn { allUsers[index].surprisesOn = surprisesOn }
         if let phone = patch.phone { allUsers[index].phone = phone.isEmpty ? nil : phone }
+        if let interests = patch.interests { allUsers[index].interests = interests }
         return allUsers[index]
     }
 

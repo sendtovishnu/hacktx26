@@ -8,6 +8,8 @@ export interface User {
   // openToSupport: the twin may tell friends you could use support (same column as surpriseOptIn).
   // surprisesOn: a friend's gesture stays hidden until they mark it delivered.
   openToSupport?: boolean; surprisesOn?: boolean; phone?: string; photoUrl?: string;
+  // Picked at sign-up (and editable): what suggestions are built around.
+  interests?: string[];
 }
 export interface FriendEntry { friend: User; tier: Tier }
 export interface CalendarEvent { title: string; start: string; end: string; location?: string }
@@ -27,7 +29,8 @@ export interface TwinFriendInput {
 }
 // reason: one sentence for the user's privacy log on why this friend was nudged.
 export interface TwinDecision { friendId: string; message: string; gestureType: GestureType; surpriseNote: string; reason?: string }
-export interface Place { name: string; address: string; rating?: number; openNow?: boolean; mapsUrl?: string }
+// lat/lng from SerpApi, so the app can show the place on a map.
+export interface Place { name: string; address: string; rating?: number; openNow?: boolean; mapsUrl?: string; lat?: number; lng?: number }
 // item: what a drop-off brings, so the fallback note can name it.
 export interface Suggestion { gestureType: GestureType; title: string; detail: string; place?: Place; item?: string }
 export interface Nudge {

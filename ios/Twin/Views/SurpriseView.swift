@@ -101,7 +101,7 @@ struct SurpriseView: View {
                     Button {
                         Task { await react("helped") }
                     } label: {
-                        Text("This helped \u{2764}\u{FE0F}")
+                        (Text("This helped ") + Text("\u{2764}\u{FE0F}").font(.system(size: 16)))
                             .font(Theme.button())
                             .foregroundStyle(Theme.accentDeep)
                             .frame(maxWidth: .infinity)

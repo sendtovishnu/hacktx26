@@ -1,3 +1,4 @@
+import MapKit
 import SwiftUI
 
 // Shared pieces used across tabs. Visual tokens live in Theme.swift.
@@ -163,44 +164,102 @@ struct PlaceDetails: View {
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "mappin.and.ellipse")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.accent)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(place.name)
-                        .font(Theme.bodyStrong(14))
-                        .foregroundStyle(Theme.ink)
-                        .lineLimit(1)
-                    if place.openNow == true {
-                        Text("Open")
-                            .font(Theme.semibold(11))
-                            .foregroundStyle(Theme.sageInk)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .background(Theme.sageLight, in: Capsule())
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(place.name)
+                            .font(Theme.bodyStrong(14))
+                            .foregroundStyle(Theme.ink)
+                            .lineLimit(1)
+                        if place.openNow == true {
+                            Text("Open")
+                                .font(Theme.semibold(11))
+                                .foregroundStyle(Theme.sageInk)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(Theme.sageLight, in: Capsule())
+                        }
                     }
+                    Text(details)
+                        .font(Theme.small(12))
+                        .foregroundStyle(Theme.ink2)
+                        .lineLimit(1)
                 }
-                Text(details)
-                    .font(Theme.small(12))
-                    .foregroundStyle(Theme.ink2)
-                    .lineLimit(1)
+                Spacer(minLength: 4)
             }
-            Spacer(minLength: 4)
-            if let link = place.mapsLink {
-                Link(destination: link) {
-                    Image(systemName: "map.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.accent)
-                        .frame(width: 34, height: 34)
-                        .background(Theme.tint, in: Circle())
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
+            PlaceMap(place: place)
+                .padding(.horizontal, 6)
+                .padding(.bottom, 6)
+        }
+        .background(Theme.paper, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+/// A small Apple Maps window with the place pinned, inside the suggestion it belongs to.
+struct PlaceMap: View {
+    let place: Place
+    @State private var coordinate: CLLocationCoordinate2D?
+    @State private var notFound = false
+
+    var body: some View {
+        Group {
+            if let coordinate {
+                Map(initialPosition: .region(MKCoordinateRegion(center: coordinate, latitudinalMeters: 800, longitudinalMeters: 800))) {
+                    Marker(place.name, coordinate: coordinate)
+                        .tint(Theme.accent)
                 }
-                .accessibilityLabel("Open in Maps")
+                .mapControlVisibility(.hidden)
+                .overlay(alignment: .topTrailing) {
+                    Button {
+                        openInMaps(coordinate)
+                    } label: {
+                        Label("Directions", systemImage: "arrow.triangle.turn.up.right.circle.fill")
+                            .font(Theme.semibold(12))
+                            .foregroundStyle(Theme.onAccent)
+                            .padding(.horizontal, 10)
+                            .frame(height: 28)
+                            .background(Theme.accent, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(8)
+                }
+            } else if !notFound {
+                ZStack {
+                    Theme.cream
+                    ProgressView().tint(Theme.accent)
+                }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(Theme.paper, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .frame(height: notFound ? 0 : 150)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .task(id: place) { await locate() }
+    }
+
+    /// Search results usually carry coordinates; otherwise Apple Maps looks up the address.
+    private func locate() async {
+        if let lat = place.lat, let lng = place.lng {
+            coordinate = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+            return
+        }
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = "\(place.name), \(place.address)"
+        if let item = try? await MKLocalSearch(request: request).start().mapItems.first {
+            coordinate = item.placemark.coordinate
+        } else {
+            notFound = true
+        }
+    }
+
+    private func openInMaps(_ coordinate: CLLocationCoordinate2D) {
+        let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
+        item.name = place.name
+        item.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDefault])
     }
 }

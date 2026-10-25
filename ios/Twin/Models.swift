@@ -72,6 +72,8 @@ struct User: Codable, Identifiable, Hashable {
     var surprisesOn: Bool?
     /// How friends with you in their contacts find you.
     var phone: String?
+    /// Picked at sign-up; suggestions for showing up are built around these.
+    var interests: [String]?
 }
 
 extension User {
@@ -83,6 +85,7 @@ struct SettingsPatch: Encodable {
     var openToSupport: Bool?
     var surprisesOn: Bool?
     var phone: String?
+    var interests: [String]?
 }
 
 /// A pending or just-accepted request. `user` is always the other person.
@@ -162,6 +165,9 @@ struct Place: Codable, Hashable {
     var rating: Double?
     var openNow: Bool?
     var mapsUrl: String?
+    /// From the place search, so it can be shown on a map. Missing means look it up by address.
+    var lat: Double?
+    var lng: Double?
 
     var mapsLink: URL? {
         if let mapsUrl, let url = URL(string: mapsUrl) {
@@ -233,6 +239,8 @@ struct TwinEntry: Codable, Identifiable, Hashable {
     var id: String
     var text: String
     var createdAt: String
+    /// Set once a refresh has read it; until then it waits under "Anything else on your mind?".
+    var readAt: String?
 }
 
 struct TwinState: Codable {
@@ -276,5 +284,20 @@ enum DateText {
 
     static func now() -> String {
         isoPlain.string(from: Date())
+    }
+
+    /// "2026-10-27" as "Today", "Tomorrow" or "Tue"; anything else is shown as given ("this week").
+    static func day(_ text: String) -> String {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.dateFormat = "yyyy-MM-dd"
+        guard let date = f.date(from: String(text.prefix(10))) else { return text }
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return "Today" }
+        if cal.isDateInTomorrow(date) { return "Tomorrow" }
+        let days = cal.dateComponents([.day], from: cal.startOfDay(for: Date()), to: date).day ?? 0
+        // Within the week the weekday is enough; further out it needs the date.
+        if (0...6).contains(days) { return date.formatted(.dateTime.weekday(.abbreviated)) }
+        return date.formatted(.dateTime.month(.abbreviated).day())
     }
 }

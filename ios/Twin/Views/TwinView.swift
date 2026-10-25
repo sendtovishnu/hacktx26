@@ -8,6 +8,12 @@ struct TwinView: View {
     @State private var signals: Signals?
     @State private var nudgesSent: Int?
     @State private var nothingNew = false
+    @State private var showTold = false
+
+    /// Added since the last refresh; the twin hasn't read these yet.
+    private var waiting: [TwinEntry] { entries.filter { $0.readAt == nil } }
+    /// Already part of the twin's read of the week.
+    private var told: [TwinEntry] { entries.filter { $0.readAt != nil } }
     @State private var refreshing = false
     @State private var error: String?
     @State private var editingShare = false
@@ -79,10 +85,10 @@ struct TwinView: View {
             .disabled(trimmedEntry.isEmpty || adding)
             .opacity(trimmedEntry.isEmpty ? 0.5 : 1)
 
-            if !entries.isEmpty {
+            if !waiting.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Eyebrow(text: "Your twin knows")
-                    ForEach(entries) { entry in
+                    Eyebrow(text: "Waiting for your next refresh")
+                    ForEach(waiting) { entry in
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: "text.bubble")
                                 .foregroundStyle(Theme.ink3)
@@ -139,12 +145,51 @@ struct TwinView: View {
                     Text(signals.supportLevel.label).font(Theme.heading()).foregroundStyle(Theme.ink)
                 }
             }
+            // Calendar, email and what you told your twin, read together into one week.
             if !signals.stressors.isEmpty {
-                FlowRow(spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Eyebrow(text: "This week")
                     ForEach(signals.stressors, id: \.self) { stressor in
-                        Pill(text: "\(stressor.what) · \(stressor.when)", tone: .neutral, systemImage: "calendar")
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Circle().fill(Theme.accent).frame(width: 6, height: 6)
+                            Text(stressor.what)
+                                .font(Theme.body(15))
+                                .foregroundStyle(Theme.ink)
+                            Spacer(minLength: 8)
+                            Text(DateText.day(stressor.when))
+                                .font(Theme.small(12))
+                                .foregroundStyle(Theme.ink2)
+                        }
                     }
                 }
+            }
+            if !told.isEmpty {
+                DisclosureGroup(isExpanded: $showTold) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(told) { entry in
+                            HStack(alignment: .top, spacing: 8) {
+                                Text(entry.text).font(Theme.small()).foregroundStyle(Theme.ink2)
+                                Spacer(minLength: 0)
+                                Button {
+                                    Task { await deleteEntry(entry) }
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.ink3)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Remove")
+                            }
+                        }
+                        Text("Remove anything that's over. Your twin stops counting it on the next refresh.")
+                            .font(Theme.small(11))
+                            .foregroundStyle(Theme.ink3)
+                    }
+                    .padding(.top, 6)
+                } label: {
+                    Text("What you told your twin (\(told.count))")
+                        .font(Theme.semibold(13))
+                        .foregroundStyle(Theme.ink2)
+                }
+                .tint(Theme.ink2)
             }
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
@@ -436,6 +481,9 @@ struct TwinView: View {
                 nudgesSent = result.nudgesSent
                 nothingNew = result.nothingNew ?? false
             }
+            // Read entries move up into "This week".
+            let fresh = try await state.api.twinEntries()
+            withAnimation(.snappy) { entries = fresh }
             error = nil
         } catch {
             self.error = error.localizedDescription

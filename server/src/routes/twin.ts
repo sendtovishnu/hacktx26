@@ -12,6 +12,7 @@ import {
   deleteUnactedNudgesTo,
   listTwinEntries,
   markCovered,
+  markEntriesRead,
   getFriends,
   getLatestSignal,
   getSummaryOverride,
@@ -120,6 +121,8 @@ twinRouter.post('/twin/refresh', requireDemoUser, async (req, res) => {
       // What they've added to their twin counts like a check-in, every refresh, until they delete it.
       const told = [checkin, ...entries.map((e) => e.text)].filter((t): t is string => Boolean(t?.trim()));
       await saveSignals(user.id, await extractSignals(events, emails, told.length ? told.join('" and "') : undefined));
+      // Now part of the twin's read of the week, so the app moves them up out of "waiting".
+      await markEntriesRead(user.id);
       const signals = await withOverride(user.id, toSignals((await getLatestSignal(user.id))!));
 
       const friendEntries = await getFriends(user.id);

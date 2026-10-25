@@ -34,3 +34,21 @@ export async function findPlaces(kind: Kind, near: string): Promise<Place[]> {
     return fallback(kind);
   }
 }
+
+/** Any search ("bouldering gym", "boba"), for ideas built from interests. Empty on failure, never fixtures. */
+export async function searchPlaces(what: string, near: string): Promise<Place[]> {
+  if (useMocks()) return [];
+  const query = `${what} near ${near}`;
+  const cached = cache.get(query);
+  if (cached) return cached;
+  try {
+    const places = (await searchMaps(query))
+      .sort((a, b) => Number(b.openNow === true) - Number(a.openNow === true))
+      .slice(0, 3);
+    if (places.length) cache.set(query, places);
+    return places;
+  } catch (e) {
+    console.warn('[places] SerpApi failed:', (e as Error).message);
+    return [];
+  }
+}

@@ -8,6 +8,7 @@ interface LocalResult {
   rating?: number;
   open_state?: string;
   place_id?: string;
+  gps_coordinates?: { latitude?: number; longitude?: number };
 }
 
 // "Open ⋅ Closes 10 PM" and "Closes soon" mean open; "Closed" and "Opens 7 AM" do not.
@@ -43,5 +44,7 @@ export async function searchMaps(query: string): Promise<Place[]> {
       rating: r.rating,
       openNow: isOpen(r.open_state),
       mapsUrl: mapsUrl(r),
+      lat: r.gps_coordinates?.latitude,
+      lng: r.gps_coordinates?.longitude,
     }));
 }
