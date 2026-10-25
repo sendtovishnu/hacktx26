@@ -59,6 +59,7 @@ struct RootView: View {
         .animation(.easeInOut(duration: 0.35), value: state.isSignedIn)
         .animation(.easeInOut(duration: 0.35), value: state.hasCompletedSetup)
         .tint(Theme.accent)
+        .lineSpacing(2.5)
         // Accent colors are read when views draw, so redraw everything when the accent changes.
         .id(theme.accent)
         .onAppear { theme.applyAppearance() }

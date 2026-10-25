@@ -37,7 +37,6 @@ struct SurpriseView: View {
                 VStack(spacing: 8) {
                     Text(AppState.headline(for: gesture))
                         .font(Theme.title(34))
-                        .tracking(-0.6)
                         .multilineTextAlignment(.center)
                     Text("From \(gesture.fromFriend.name)")
                         .font(Theme.bodyStrong())

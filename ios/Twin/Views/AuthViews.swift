@@ -24,7 +24,6 @@ struct WelcomeView: View {
                 }
                 Text("Your friends shouldn't have to ask.")
                     .font(Theme.title(38))
-                    .tracking(-0.6)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Theme.ink)
                 Text("Twin keeps up with your week and quietly lets your closest people know when you could use them.")
@@ -72,7 +71,6 @@ struct SignInView: View {
                     VStack(spacing: 8) {
                         Text("Welcome to Twin")
                             .font(Theme.title())
-                            .tracking(-0.6)
                             .foregroundStyle(Theme.ink)
                         Text("Sign in to see your people.")
                             .font(Theme.body(16))

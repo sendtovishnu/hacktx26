@@ -150,6 +150,7 @@ enum Theme {
 
     // MARK: Type
     // Plus Jakarta Sans: friendly and rounded, in the spirit of Instagram and Snapchat's type.
+    // Our copies have the word space widened from 0.17em to 0.25em; the original runs words together.
     enum Typeface {
         static let display = "PlusJakartaSans-ExtraBold"
         static let note = "PlusJakartaSans-Medium"
@@ -159,8 +160,8 @@ enum Theme {
         static let sansBold = "PlusJakartaSans-Bold"
     }
 
-    /// Plus Jakarta Sans runs a touch wide; this keeps layouts the size they were designed at.
-    private static let scale: CGFloat = 0.96
+    /// Room to tune every size at once; 1 is the font as designed.
+    private static let scale: CGFloat = 1
 
     static func display(_ size: CGFloat = 44) -> Font { .custom(Typeface.display, size: size * scale) }
     static func title(_ size: CGFloat = 34) -> Font { .custom(Typeface.display, size: size * scale) }
@@ -228,7 +229,6 @@ struct ScreenHeader: View {
             Eyebrow(text: eyebrow)
             Text(title)
                 .font(Theme.title())
-                .tracking(-0.6)
                 .foregroundStyle(Theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -323,8 +323,9 @@ struct Pill: View {
             } else {
                 Circle().frame(width: 7, height: 7)
             }
-            Text(text).font(Theme.semibold(13))
+            Text(text).font(Theme.semibold(13)).lineLimit(1)
         }
+        .fixedSize(horizontal: true, vertical: false)
         .foregroundStyle(colors.0)
         .padding(.horizontal, 11)
         .padding(.vertical, 6)

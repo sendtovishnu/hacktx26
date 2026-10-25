@@ -185,9 +185,10 @@ struct AddFriendsView: View {
         HStack(spacing: 12) {
             Avatar(user: request.user, size: 42)
             VStack(alignment: .leading, spacing: 2) {
-                Text(request.user.name).font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
-                Text("Wants to be friends").font(Theme.small(12)).foregroundStyle(Theme.ink2)
+                Text(request.user.name).font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink).lineLimit(1)
+                Text("Wants to be friends").font(Theme.small(12)).foregroundStyle(Theme.ink2).lineLimit(1)
             }
+            .layoutPriority(-1)
             Spacer()
             Button {
                 Task { await decline(request) }
@@ -243,6 +244,8 @@ struct AddFriendsView: View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
                 .font(Theme.semibold(14))
+                .lineLimit(1)
+                .fixedSize()
                 .foregroundStyle(Theme.onAccent)
                 .padding(.horizontal, 14)
                 .frame(height: 34)
