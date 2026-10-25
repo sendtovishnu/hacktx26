@@ -18,6 +18,13 @@
 				<string>$(GOOGLE_IOS_URL_SCHEME)</string>
 			</array>
 		</dict>
+		<dict>
+			<!-- Invite links open twin://invite/<code> from the server's /i/<code> page. -->
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>twin</string>
+			</array>
+		</dict>
 	</array>
 	<key>UIAppFonts</key>
 	<array>

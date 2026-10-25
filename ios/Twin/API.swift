@@ -13,7 +13,14 @@ protocol TwinAPI: AnyObject {
     func me() async throws -> User
     func friends() async throws -> [FriendEntry]
     func setTier(friendId: String, tier: Tier) async throws -> FriendEntry
-    func addFriend(friendId: String, tier: Tier) async throws -> FriendEntry
+    func friendRequests() async throws -> FriendRequests
+    /// `tier` is the circle you're putting them in. They never see it.
+    func sendFriendRequest(to userId: String, tier: Tier) async throws -> SendRequestResult
+    func acceptFriendRequest(_ id: String, tier: Tier) async throws -> FriendEntry
+    func declineFriendRequest(_ id: String) async throws
+    func cancelFriendRequest(_ id: String) async throws
+    func createInvite(tier: Tier, channel: InviteChannel, contact: String?) async throws -> Invite
+    func redeemInvite(_ code: String) async throws -> RedeemResult
     func signInWithGoogle(idToken: String, serverAuthCode: String?) async throws -> SignInResult
     func signOut() async
     func exchangeGoogleCode(_ code: String) async throws
@@ -126,9 +133,33 @@ final class APIClient: TwinAPI {
         return try await call("PATCH", "api/friends/\(friendId)", body: Body(tier: tier))
     }
 
-    func addFriend(friendId: String, tier: Tier) async throws -> FriendEntry {
-        struct Body: Encodable { let friendId: String; let tier: Tier }
-        return try await call("POST", "api/friends", body: Body(friendId: friendId, tier: tier))
+    func friendRequests() async throws -> FriendRequests { try await get("api/friend-requests") }
+
+    func sendFriendRequest(to userId: String, tier: Tier) async throws -> SendRequestResult {
+        struct Body: Encodable { let toUserId: String; let tier: Tier }
+        return try await call("POST", "api/friend-requests", body: Body(toUserId: userId, tier: tier))
+    }
+
+    func acceptFriendRequest(_ id: String, tier: Tier) async throws -> FriendEntry {
+        struct Body: Encodable { let tier: Tier }
+        return try await call("POST", "api/friend-requests/\(id)/accept", body: Body(tier: tier))
+    }
+
+    func declineFriendRequest(_ id: String) async throws {
+        let _: Ignored = try await call("POST", "api/friend-requests/\(id)/decline", body: Empty())
+    }
+
+    func cancelFriendRequest(_ id: String) async throws {
+        let _: Ignored = try await send(makeRequest("DELETE", "api/friend-requests/\(id)"))
+    }
+
+    func createInvite(tier: Tier, channel: InviteChannel, contact: String?) async throws -> Invite {
+        struct Body: Encodable { let tier: Tier; let channel: InviteChannel; let contact: String? }
+        return try await call("POST", "api/invites", body: Body(tier: tier, channel: channel, contact: contact))
+    }
+
+    func redeemInvite(_ code: String) async throws -> RedeemResult {
+        try await call("POST", "api/invites/\(code)/redeem", body: Empty())
     }
 
     func signInWithGoogle(idToken: String, serverAuthCode: String?) async throws -> SignInResult {

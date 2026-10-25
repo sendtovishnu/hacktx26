@@ -101,7 +101,7 @@ struct HomeView: View {
                 .foregroundStyle(Theme.ink2)
 
             if members.isEmpty {
-                Text(tier == .closest ? "No one yet. Add your person from Add friends." : "No one here yet.")
+                Text(tier == .closest ? "No one yet. Add your person from Friends." : "No one here yet.")
                     .font(Theme.small())
                     .foregroundStyle(Theme.ink3)
                     .padding(.vertical, 4)

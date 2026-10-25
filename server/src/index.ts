@@ -2,6 +2,7 @@ import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
 import { googleStatus, webRedirectUri } from './google/index.js';
+import { inviteLandingRouter } from './routes/friendRequests.js';
 import { apiRouter } from './routes/index.js';
 
 const port = Number(process.env.PORT ?? 3000);
@@ -75,6 +76,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api', apiRouter);
+app.use(inviteLandingRouter);
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`hacktx26 server listening on http://0.0.0.0:${port}`);

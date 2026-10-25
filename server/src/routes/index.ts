@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authRouter } from './auth.js';
+import { friendRequestsRouter } from './friendRequests.js';
 import { friendsRouter } from './friends.js';
 import { gesturesRouter } from './gestures.js';
 import { ingestRouter } from './ingest.js';
@@ -14,6 +15,7 @@ export const apiRouter = Router();
 
 apiRouter.use(usersRouter);
 apiRouter.use(friendsRouter);
+apiRouter.use(friendRequestsRouter);
 apiRouter.use(authRouter);
 apiRouter.use(ingestRouter);
 apiRouter.use(twinRouter);

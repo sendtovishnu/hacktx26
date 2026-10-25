@@ -69,6 +69,45 @@ struct User: Codable, Identifiable, Hashable {
     var photoUrl: String?
 }
 
+/// A pending or just-accepted request. `user` is always the other person.
+struct FriendRequest: Codable, Identifiable, Hashable {
+    var id: String
+    var user: User
+    var createdAt: String
+}
+
+struct FriendRequests: Codable {
+    var incoming: [FriendRequest]
+    var outgoing: [FriendRequest]
+    /// Requests you sent that were accepted in the last day.
+    var accepted: [FriendRequest]
+
+    static let empty = FriendRequests(incoming: [], outgoing: [], accepted: [])
+}
+
+/// "pending" carries the request; "accepted" means they had already asked you, so you're now friends.
+struct SendRequestResult: Decodable {
+    var status: String
+    var request: FriendRequest?
+    var friend: FriendEntry?
+}
+
+enum InviteChannel: String, Encodable { case sms, email, link }
+
+struct Invite: Decodable {
+    var code: String
+    var url: String
+    /// Ready-to-send text that includes the link.
+    var message: String
+}
+
+/// "pending": a request from the inviter is waiting for you. "friends": you already were.
+struct RedeemResult: Decodable {
+    var status: String
+    var inviter: User
+    var request: FriendRequest?
+}
+
 struct SignInResult: Decodable {
     let token: String
     let user: User

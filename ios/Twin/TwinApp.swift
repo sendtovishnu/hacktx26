@@ -17,9 +17,12 @@ struct TwinApp: App {
                 .environmentObject(state)
                 .task { await state.start() }
                 .onOpenURL { url in
-                    #if canImport(GoogleSignIn)
-                    GIDSignIn.sharedInstance.handle(url)
-                    #endif
+                    Task {
+                        if await state.handle(url: url) { return }
+                        #if canImport(GoogleSignIn)
+                        GIDSignIn.sharedInstance.handle(url)
+                        #endif
+                    }
                 }
         }
     }
@@ -59,6 +62,21 @@ struct RootView: View {
         // Accent colors are read when views draw, so redraw everything when the accent changes.
         .id(theme.accent)
         .onAppear { theme.applyAppearance() }
+        .sheet(item: $state.invitedRequest) { request in
+            CircleChoiceSheet(sheet: .accept(request)) { tier in
+                _ = try await state.api.acceptFriendRequest(request.id, tier: tier)
+                await state.reloadFriendRequests()
+            }
+            .environmentObject(state)
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+        .alert(state.inviteMessage ?? "", isPresented: Binding(
+            get: { state.inviteMessage != nil },
+            set: { if !$0 { state.inviteMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        }
         .fullScreenCover(item: $state.activeSurprise) { gesture in
             SurpriseView(gesture: gesture)
         }
@@ -74,7 +92,8 @@ struct RootView: View {
             NavigationStack { HomeView() }
                 .tabItem { Label("Home", systemImage: "circle.circle") }
             NavigationStack { AddFriendsView() }
-                .tabItem { Label("Add friends", systemImage: "person.badge.plus") }
+                .tabItem { Label("Friends", systemImage: "person.badge.plus") }
+                .badge(state.friendRequests.incoming.count)
             NavigationStack { TwinView() }
                 .tabItem { Label("Twin", systemImage: "sparkles") }
             NavigationStack { NudgesView() }

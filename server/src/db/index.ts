@@ -129,6 +129,240 @@ export async function deleteSession(token: string): Promise<void> {
   await query('DELETE FROM sessions WHERE token = $1', [token]);
 }
 
+// Friend requests and invites. A friendship exists only once both people have chosen a circle:
+// the sender picks theirs when sending, the recipient when accepting.
+let friendRequestsReady: Promise<unknown> | null = null;
+function ensureFriendRequests(): Promise<unknown> {
+  friendRequestsReady ??= query(`
+    CREATE TABLE IF NOT EXISTS friend_requests (
+      id TEXT PRIMARY KEY,
+      from_user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+      to_user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+      from_tier TEXT NOT NULL CHECK (from_tier IN ('friend', 'close', 'closest')),
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'accepted', 'declined', 'cancelled')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      responded_at TIMESTAMPTZ,
+      CHECK (from_user_id <> to_user_id)
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS friend_requests_one_pending
+      ON friend_requests (from_user_id, to_user_id) WHERE status = 'pending';
+    CREATE TABLE IF NOT EXISTS invites (
+      code TEXT PRIMARY KEY,
+      from_user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+      from_tier TEXT NOT NULL CHECK (from_tier IN ('friend', 'close', 'closest')),
+      channel TEXT NOT NULL CHECK (channel IN ('sms', 'email', 'link')),
+      contact TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      redeemed_by TEXT REFERENCES users (id) ON DELETE SET NULL,
+      redeemed_at TIMESTAMPTZ
+    );`);
+  return friendRequestsReady;
+}
+
+export type FriendRequest = { id: string; user: User; createdAt: string };
+
+type FriendRequestRow = UserRow & { request_id: string; request_created_at: Date };
+
+function mapFriendRequest(row: FriendRequestRow): FriendRequest {
+  return { id: row.request_id, user: mapUser(row), createdAt: row.request_created_at.toISOString() };
+}
+
+/** Pending requests both ways, plus your sent requests accepted in the last day (for "X accepted"). */
+export async function listFriendRequests(userId: string): Promise<{
+  incoming: FriendRequest[];
+  outgoing: FriendRequest[];
+  accepted: FriendRequest[];
+}> {
+  await ensureFriendRequests();
+  const select = (otherSide: 'from_user_id' | 'to_user_id', mine: 'from_user_id' | 'to_user_id', where: string) =>
+    query<FriendRequestRow>(
+      `SELECT r.id AS request_id, r.created_at AS request_created_at, u.*
+       FROM friend_requests r JOIN users u ON u.id = r.${otherSide}
+       WHERE r.${mine} = $1 AND ${where}
+       ORDER BY r.created_at DESC`,
+      [userId],
+    );
+  const [incoming, outgoing, accepted] = await Promise.all([
+    select('from_user_id', 'to_user_id', `r.status = 'pending'`),
+    select('to_user_id', 'from_user_id', `r.status = 'pending'`),
+    select('to_user_id', 'from_user_id', `r.status = 'accepted' AND r.responded_at > now() - interval '1 day'`),
+  ]);
+  return {
+    incoming: incoming.rows.map(mapFriendRequest),
+    outgoing: outgoing.rows.map(mapFriendRequest),
+    accepted: accepted.rows.map(mapFriendRequest),
+  };
+}
+
+export async function areFriends(a: string, b: string): Promise<boolean> {
+  const { rowCount } = await query(
+    'SELECT 1 FROM friendships WHERE user_id = $1 AND friend_id = $2',
+    [a, b],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+async function getFriendRequest(id: string): Promise<FriendRequest | null> {
+  const { rows } = await query<FriendRequestRow>(
+    `SELECT r.id AS request_id, r.created_at AS request_created_at, u.*
+     FROM friend_requests r JOIN users u ON u.id = r.to_user_id WHERE r.id = $1`,
+    [id],
+  );
+  return rows[0] ? mapFriendRequest(rows[0]) : null;
+}
+
+export type SendRequestResult =
+  | { status: 'pending'; request: FriendRequest }
+  | { status: 'accepted'; friend: FriendEntry }
+  | { status: 'already_friends' }
+  | { status: 'not_found' };
+
+/**
+ * Sends a request with the circle the sender chose. If the other person already asked,
+ * this accepts theirs instead, since both sides have now chosen.
+ */
+export async function sendFriendRequest(fromId: string, toId: string, tier: Tier): Promise<SendRequestResult> {
+  await ensureFriendRequests();
+  if (fromId === toId || !(await getUser(toId))) return { status: 'not_found' };
+  if (await areFriends(fromId, toId)) return { status: 'already_friends' };
+
+  const reverse = await query<{ id: string }>(
+    `SELECT id FROM friend_requests WHERE from_user_id = $1 AND to_user_id = $2 AND status = 'pending'`,
+    [toId, fromId],
+  );
+  if (reverse.rows[0]) {
+    const friend = await acceptFriendRequest(reverse.rows[0].id, fromId, tier);
+    if (friend) return { status: 'accepted', friend };
+  }
+
+  const id = `fr_${randomBytes(8).toString('hex')}`;
+  const { rows } = await query<{ id: string }>(
+    `INSERT INTO friend_requests (id, from_user_id, to_user_id, from_tier) VALUES ($1, $2, $3, $4)
+     ON CONFLICT (from_user_id, to_user_id) WHERE status = 'pending'
+     DO UPDATE SET from_tier = EXCLUDED.from_tier
+     RETURNING id`,
+    [id, fromId, toId, tier],
+  );
+  const request = await getFriendRequest(rows[0].id);
+  return request ? { status: 'pending', request } : { status: 'not_found' };
+}
+
+/** Only the recipient can accept. Creates both directions of the friendship. */
+export async function acceptFriendRequest(id: string, userId: string, tier: Tier): Promise<FriendEntry | null> {
+  await ensureFriendRequests();
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query<{ from_user_id: string; from_tier: Tier }>(
+      `UPDATE friend_requests SET status = 'accepted', responded_at = now()
+       WHERE id = $1 AND to_user_id = $2 AND status = 'pending'
+       RETURNING from_user_id, from_tier`,
+      [id, userId],
+    );
+    const request = rows[0];
+    if (!request) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const upsert = `INSERT INTO friendships (user_id, friend_id, tier) VALUES ($1, $2, $3)
+      ON CONFLICT (user_id, friend_id) DO UPDATE SET tier = EXCLUDED.tier`;
+    await client.query(upsert, [request.from_user_id, userId, request.from_tier]);
+    await client.query(upsert, [userId, request.from_user_id, tier]);
+    await client.query('COMMIT');
+    const friend = await getUser(request.from_user_id);
+    return friend ? { friend, tier } : null;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/** Decline (recipient) or cancel (sender). Returns false if there was nothing pending to close. */
+export async function closeFriendRequest(id: string, userId: string, as: 'declined' | 'cancelled'): Promise<boolean> {
+  await ensureFriendRequests();
+  const column = as === 'declined' ? 'to_user_id' : 'from_user_id';
+  const { rowCount } = await query(
+    `UPDATE friend_requests SET status = $3, responded_at = now()
+     WHERE id = $1 AND ${column} = $2 AND status = 'pending'`,
+    [id, userId, as],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+export type InviteChannel = 'sms' | 'email' | 'link';
+
+export async function createInvite(
+  fromId: string,
+  tier: Tier,
+  channel: InviteChannel,
+  contact: string | null,
+): Promise<string> {
+  await ensureFriendRequests();
+  const code = randomBytes(6).toString('base64url');
+  await query(
+    'INSERT INTO invites (code, from_user_id, from_tier, channel, contact) VALUES ($1, $2, $3, $4, $5)',
+    [code, fromId, tier, channel, contact],
+  );
+  return code;
+}
+
+export async function getInviter(code: string): Promise<User | null> {
+  await ensureFriendRequests();
+  const { rows } = await query<UserRow>(
+    'SELECT u.* FROM invites i JOIN users u ON u.id = i.from_user_id WHERE i.code = $1',
+    [code],
+  );
+  return rows[0] ? mapUser(rows[0]) : null;
+}
+
+export type RedeemResult =
+  | { status: 'not_found' | 'used' | 'own_invite' }
+  | { status: 'friends'; inviter: User }
+  | { status: 'pending'; inviter: User; request: FriendRequest };
+
+/**
+ * Opening an invite turns it into a friend request from the inviter, waiting for you to accept.
+ * Each invite works once, so a forwarded link can't be reused by someone else.
+ */
+export async function redeemInvite(code: string, userId: string): Promise<RedeemResult> {
+  await ensureFriendRequests();
+  const { rows } = await query<{ from_user_id: string; from_tier: Tier; redeemed_by: string | null }>(
+    'SELECT from_user_id, from_tier, redeemed_by FROM invites WHERE code = $1',
+    [code],
+  );
+  const invite = rows[0];
+  if (!invite) return { status: 'not_found' };
+  if (invite.from_user_id === userId) return { status: 'own_invite' };
+  if (invite.redeemed_by && invite.redeemed_by !== userId) return { status: 'used' };
+  const inviter = await getUser(invite.from_user_id);
+  if (!inviter) return { status: 'not_found' };
+
+  await query(
+    'UPDATE invites SET redeemed_by = $2, redeemed_at = COALESCE(redeemed_at, now()) WHERE code = $1',
+    [code, userId],
+  );
+  const result = await sendFriendRequest(invite.from_user_id, userId, invite.from_tier);
+  if (result.status === 'pending') {
+    // The request is from the inviter, so show the inviter on the recipient's side.
+    return { status: 'pending', inviter, request: { ...result.request, user: inviter } };
+  }
+  return { status: 'friends', inviter };
+}
+
+/** Email invites wait for that address to sign in, so the person doesn't need the link. */
+export async function claimEmailInvites(user: User): Promise<void> {
+  await ensureFriendRequests();
+  const { rows } = await query<{ code: string }>(
+    `SELECT code FROM invites
+     WHERE channel = 'email' AND lower(contact) = lower($1) AND redeemed_by IS NULL AND from_user_id <> $2`,
+    [user.email, user.id],
+  );
+  for (const { code } of rows) await redeemInvite(code, user.id);
+}
+
 export async function getFriends(userId: string): Promise<FriendEntry[]> {
   const { rows } = await query<FriendshipRow>(
     `SELECT f.friend_id, f.tier, u.id, u.name, u.email, u.home_location,

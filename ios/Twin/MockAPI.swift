@@ -12,6 +12,16 @@ final class MockAPI: TwinAPI {
         var tier: Tier
     }
 
+    private struct MockRequest {
+        var id: String
+        var from: String
+        var to: String
+        var fromTier: Tier
+        var status = "pending"
+        var createdAt = ISO8601DateFormatter().string(from: Date())
+        var respondedAt: Date?
+    }
+
     private struct StoredGesture {
         var gesture: Gesture
         var helpedUserId: String
@@ -32,6 +42,9 @@ final class MockAPI: TwinAPI {
     private var gestureList: [StoredGesture] = []
     private var googleConnected = false
     private var icsConnected = false
+    /// Sofia has already asked Maya, so the demo shows a request waiting.
+    private var requests = [MockRequest(id: "fr_demo_sofia", from: "u_sofia", to: "u_maya", fromTier: .close)]
+    private var invites: [String: (from: String, tier: Tier, redeemedBy: String?)] = [:]
 
     init(userId: String) {
         currentUserId = userId
@@ -104,21 +117,93 @@ final class MockAPI: TwinAPI {
         return FriendEntry(friend: friend, tier: tier)
     }
 
-    func addFriend(friendId: String, tier: Tier) async throws -> FriendEntry {
+    func friendRequests() async throws -> FriendRequests {
         await delay()
-        guard let friend = user(friendId), friendId != currentUserId else {
-            throw APIError.notConfigured("That person isn't on Twin.")
+        let me = currentUserId
+        let dayAgo = Date().addingTimeInterval(-86_400)
+        func entries(_ list: [MockRequest], otherSide: (MockRequest) -> String) -> [FriendRequest] {
+            list.compactMap { r in user(otherSide(r)).map { FriendRequest(id: r.id, user: $0, createdAt: r.createdAt) } }
         }
-        if let index = links.firstIndex(where: { $0.userId == currentUserId && $0.friendId == friendId }) {
-            links[index].tier = tier
-        } else {
-            links.append(Link(userId: currentUserId, friendId: friendId, tier: tier))
+        return FriendRequests(
+            incoming: entries(requests.filter { $0.to == me && $0.status == "pending" }) { $0.from },
+            outgoing: entries(requests.filter { $0.from == me && $0.status == "pending" }) { $0.to },
+            accepted: entries(requests.filter { $0.from == me && $0.status == "accepted" && ($0.respondedAt ?? .distantPast) > dayAgo }) { $0.to }
+        )
+    }
+
+    func sendFriendRequest(to userId: String, tier: Tier) async throws -> SendRequestResult {
+        await delay()
+        let me = currentUserId
+        guard let other = user(userId), userId != me else { throw APIError.notConfigured("That person isn't on Twin.") }
+        guard !links.contains(where: { $0.userId == me && $0.friendId == userId }) else {
+            throw APIError.notConfigured("You're already friends.")
         }
-        // Friendship is mutual; the other person starts with you in their outer circle until they choose.
-        if !links.contains(where: { $0.userId == friendId && $0.friendId == currentUserId }) {
-            links.append(Link(userId: friendId, friendId: currentUserId, tier: .friend))
+        // They already asked you, so both sides have now chosen a circle.
+        if let reverse = requests.first(where: { $0.from == userId && $0.to == me && $0.status == "pending" }) {
+            let entry = try await acceptFriendRequest(reverse.id, tier: tier)
+            return SendRequestResult(status: "accepted", request: nil, friend: entry)
         }
+        if let index = requests.firstIndex(where: { $0.from == me && $0.to == userId && $0.status == "pending" }) {
+            requests[index].fromTier = tier
+            return SendRequestResult(status: "pending", request: FriendRequest(id: requests[index].id, user: other, createdAt: requests[index].createdAt), friend: nil)
+        }
+        let request = MockRequest(id: "fr_\(UUID().uuidString.prefix(8))", from: me, to: userId, fromTier: tier)
+        requests.append(request)
+        return SendRequestResult(status: "pending", request: FriendRequest(id: request.id, user: other, createdAt: request.createdAt), friend: nil)
+    }
+
+    func acceptFriendRequest(_ id: String, tier: Tier) async throws -> FriendEntry {
+        await delay()
+        guard let index = requests.firstIndex(where: { $0.id == id && $0.to == currentUserId && $0.status == "pending" }),
+              let friend = user(requests[index].from) else {
+            throw APIError.notConfigured("That request is no longer pending.")
+        }
+        requests[index].status = "accepted"
+        requests[index].respondedAt = Date()
+        let request = requests[index]
+        links.removeAll { ($0.userId == request.from && $0.friendId == request.to) || ($0.userId == request.to && $0.friendId == request.from) }
+        links.append(Link(userId: request.from, friendId: request.to, tier: request.fromTier))
+        links.append(Link(userId: request.to, friendId: request.from, tier: tier))
         return FriendEntry(friend: friend, tier: tier)
+    }
+
+    func declineFriendRequest(_ id: String) async throws {
+        await delay()
+        guard let index = requests.firstIndex(where: { $0.id == id && $0.to == currentUserId && $0.status == "pending" }) else { return }
+        requests[index].status = "declined"
+    }
+
+    func cancelFriendRequest(_ id: String) async throws {
+        await delay()
+        guard let index = requests.firstIndex(where: { $0.id == id && $0.from == currentUserId && $0.status == "pending" }) else { return }
+        requests[index].status = "cancelled"
+    }
+
+    func createInvite(tier: Tier, channel: InviteChannel, contact: String?) async throws -> Invite {
+        await delay()
+        let code = String(UUID().uuidString.prefix(8)).lowercased()
+        invites[code] = (from: currentUserId, tier: tier, redeemedBy: nil)
+        let url = "https://twin.example/i/\(code)"
+        let firstName = user(currentUserId)?.name.split(separator: " ").first.map(String.init) ?? "A friend"
+        return Invite(code: code, url: url, message: "\(firstName) wants to be friends on Twin, so you can show up for each other. Join here: \(url)")
+    }
+
+    func redeemInvite(_ code: String) async throws -> RedeemResult {
+        await delay()
+        guard let invite = invites[code], let inviter = user(invite.from) else {
+            throw APIError.notConfigured("That invite link isn't valid.")
+        }
+        guard invite.from != currentUserId else { throw APIError.notConfigured("This is your own invite. Send it to a friend.") }
+        if let by = invite.redeemedBy, by != currentUserId {
+            throw APIError.notConfigured("Someone else already used this invite. Ask for a new one.")
+        }
+        invites[code]?.redeemedBy = currentUserId
+        let me = currentUserId
+        currentUserId = invite.from
+        defer { currentUserId = me }
+        let result = try await sendFriendRequest(to: me, tier: invite.tier)
+        guard let request = result.request else { return RedeemResult(status: "friends", inviter: inviter, request: nil) }
+        return RedeemResult(status: "pending", inviter: inviter, request: FriendRequest(id: request.id, user: inviter, createdAt: request.createdAt))
     }
 
     /// Mock mode has no real accounts, so Google signs in as Maya with her calendar connected.

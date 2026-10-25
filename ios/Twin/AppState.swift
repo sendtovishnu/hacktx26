@@ -35,12 +35,22 @@ final class AppState: ObservableObject {
     @Published var surprises: [Gesture] = []
     @Published var activeSurprise: Gesture?
     @Published var lastError: String?
+    @Published var friendRequests = FriendRequests.empty
+    /// A request from someone whose invite link you just opened, shown so you can accept it.
+    @Published var invitedRequest: FriendRequest?
+    @Published var inviteMessage: String?
     /// Screens reload whenever this changes (user switch or new connection settings).
     @Published private(set) var reloadToken = 0
 
     // Remembered per demo user, so switching users on one phone still surfaces new surprises.
     private var seenNudgeIdsByUser: [String: Set<String>] = [:]
     private var seenSurpriseIdsByUser: [String: Set<String>] = [:]
+    private var seenRequestIdsByUser: [String: Set<String>] = [:]
+    /// An invite opened before signing in waits here until there's an account to redeem it for.
+    private var pendingInviteCode: String? {
+        get { UserDefaults.standard.string(forKey: "pendingInviteCode") }
+        set { UserDefaults.standard.set(newValue, forKey: "pendingInviteCode") }
+    }
     private var hasLoadedOnce = false
     private var pollTask: Task<Void, Never>?
 
@@ -139,6 +149,7 @@ final class AppState: ObservableObject {
             await reloadMe()
         }
         isSignedIn = true
+        await redeemPendingInvite()
     }
 
     /// Real sign-in: Google proves who you are, the server finds or creates your account
@@ -160,6 +171,7 @@ final class AppState: ObservableObject {
         isSignedIn = true
         await reloadUsers()
         await poll()
+        await redeemPendingInvite()
         if result.googleConnected {
             // Pull the week in the background so the twin has something to read.
             Task { _ = try? await api.ingestGoogle() }
@@ -188,6 +200,7 @@ final class AppState: ObservableObject {
     private func resetFeed() {
         nudges = []
         surprises = []
+        friendRequests = .empty
         hasLoadedOnce = false
     }
 
@@ -207,9 +220,61 @@ final class AppState: ObservableObject {
         do {
             let newNudges = try await api.nudges()
             let newSurprises = try await api.surprises()
+            let requests = try await api.friendRequests()
+            handle(requests: requests)
             handle(newNudges: newNudges, newSurprises: newSurprises)
         } catch {
             // Polling errors stay quiet; screens show their own errors.
+        }
+    }
+
+    /// Refreshes requests now instead of waiting for the next poll, e.g. after accepting one.
+    func reloadFriendRequests() async {
+        if let requests = try? await api.friendRequests() { handle(requests: requests) }
+    }
+
+    private func handle(requests: FriendRequests) {
+        let user = demoUserId
+        let seen = seenRequestIdsByUser[user, default: []]
+        friendRequests = requests
+        // Accepted ones get a separate key, since the same id was first seen as an outgoing request.
+        let ids = requests.incoming.map(\.id) + requests.accepted.map { "accepted-\($0.id)" }
+        seenRequestIdsByUser[user, default: []].formUnion(ids)
+        guard hasLoadedOnce else { return }
+        for request in requests.incoming where !seen.contains(request.id) {
+            Notifier.post(title: "\(request.user.name) sent you a friend request", body: "Accept to add each other on Twin.")
+        }
+        for request in requests.accepted where !seen.contains("accepted-\(request.id)") {
+            Notifier.post(title: "\(request.user.name) accepted your friend request", body: "You're now friends on Twin.")
+            reloadToken += 1
+        }
+    }
+
+    // MARK: Invites
+
+    /// twin://invite/<code>, from the page an invite link opens.
+    func handle(url: URL) async -> Bool {
+        guard url.scheme == "twin", url.host == "invite", let code = url.pathComponents.dropFirst().first, !code.isEmpty else {
+            return false
+        }
+        pendingInviteCode = code
+        if isSignedIn { await redeemPendingInvite() }
+        return true
+    }
+
+    func redeemPendingInvite() async {
+        guard let code = pendingInviteCode else { return }
+        pendingInviteCode = nil
+        do {
+            let result = try await api.redeemInvite(code)
+            if let request = result.request {
+                invitedRequest = request
+            } else {
+                inviteMessage = "You and \(result.inviter.name) are already friends."
+            }
+            await reloadFriendRequests()
+        } catch {
+            inviteMessage = error.localizedDescription
         }
     }
 

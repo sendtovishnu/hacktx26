@@ -1,6 +1,7 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
 import {
+  claimEmailInvites,
   createSession,
   deleteSession,
   findOrCreateUserByEmail,
@@ -95,6 +96,7 @@ authRouter.post('/auth/google/signin', async (req, res) => {
 
   const { user, created } = await findOrCreateUserByEmail(profile.email, profile.name);
   const token = await createSession(user.id);
+  await claimEmailInvites(user);
 
   let googleConnected = false;
   if (body.data.serverAuthCode) {

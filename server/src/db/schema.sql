@@ -1,4 +1,6 @@
 -- Idempotent reset: drop dependents first via CASCADE.
+DROP TABLE IF EXISTS invites CASCADE;
+DROP TABLE IF EXISTS friend_requests CASCADE;
 DROP TABLE IF EXISTS sessions CASCADE;
 DROP TABLE IF EXISTS summary_overrides CASCADE;
 DROP TABLE IF EXISTS gestures CASCADE;
@@ -33,6 +35,34 @@ CREATE TABLE friendships (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, friend_id),
   CHECK (user_id <> friend_id)
+);
+
+-- A friendship exists only after the recipient accepts; each side picks its own circle.
+CREATE TABLE friend_requests (
+  id TEXT PRIMARY KEY,
+  from_user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  to_user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  from_tier TEXT NOT NULL CHECK (from_tier IN ('friend', 'close', 'closest')),
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'accepted', 'declined', 'cancelled')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  responded_at TIMESTAMPTZ,
+  CHECK (from_user_id <> to_user_id)
+);
+
+CREATE UNIQUE INDEX friend_requests_one_pending
+  ON friend_requests (from_user_id, to_user_id) WHERE status = 'pending';
+
+-- Invite links sent by text or email; opening one becomes a request from the inviter.
+CREATE TABLE invites (
+  code TEXT PRIMARY KEY,
+  from_user_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  from_tier TEXT NOT NULL CHECK (from_tier IN ('friend', 'close', 'closest')),
+  channel TEXT NOT NULL CHECK (channel IN ('sms', 'email', 'link')),
+  contact TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  redeemed_by TEXT REFERENCES users (id) ON DELETE SET NULL,
+  redeemed_at TIMESTAMPTZ
 );
 
 CREATE TABLE connections (
