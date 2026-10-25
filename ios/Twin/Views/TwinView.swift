@@ -43,6 +43,7 @@ struct TwinView: View {
         .screenBackground()
         .withAccountButton()
         .task(id: state.reloadToken) { await load() }
+        .pullToRefresh { await load() }
     }
 
     // MARK: Cards

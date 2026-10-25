@@ -38,7 +38,13 @@ protocol TwinAPI: AnyObject {
     /// Tells your twin how a surprise landed: "helped" or "space".
     func react(toSurprise gestureId: String, reaction: String) async throws
     func privacy() async throws -> PrivacyInfo
-    func updateSettings(surpriseOptIn: Bool?, paused: Bool?) async throws -> User
+    func updateSettings(_ patch: SettingsPatch) async throws -> User
+    /// Everyone on Twin matching a name, email or phone number.
+    func searchUsers(_ query: String) async throws -> [User]
+    /// People on Twin who are in your phone's contacts. The lists aren't stored.
+    func matchContacts(phones: [String], emails: [String]) async throws -> [User]
+    /// The friend says a surprise happened, so the person now gets the note.
+    func markDelivered(gestureId: String) async throws
     func uploadPhoto(_ jpeg: Data) async throws -> User
     func removePhoto() async throws -> User
 }
@@ -81,7 +87,10 @@ final class APIClient: TwinAPI {
     // MARK: Core request
 
     private func makeRequest(_ method: String, _ path: String) -> URLRequest {
-        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        // A query string would be escaped into the path by appendingPathComponent.
+        let base = baseURL.absoluteString.hasSuffix("/") ? String(baseURL.absoluteString.dropLast()) : baseURL.absoluteString
+        let url = URL(string: "\(base)/\(path)") ?? baseURL.appendingPathComponent(path)
+        var request = URLRequest(url: url)
         request.httpMethod = method
         if let sessionToken {
             request.setValue("Bearer \(sessionToken)", forHTTPHeaderField: "Authorization")
@@ -239,9 +248,23 @@ final class APIClient: TwinAPI {
 
     func privacy() async throws -> PrivacyInfo { try await get("api/privacy") }
 
-    func updateSettings(surpriseOptIn: Bool?, paused: Bool?) async throws -> User {
-        struct Body: Encodable { let surpriseOptIn: Bool?; let paused: Bool? }
-        return try await call("PATCH", "api/settings", body: Body(surpriseOptIn: surpriseOptIn, paused: paused))
+    func updateSettings(_ patch: SettingsPatch) async throws -> User {
+        try await call("PATCH", "api/settings", body: patch)
+    }
+
+    func searchUsers(_ query: String) async throws -> [User] {
+        var components = URLComponents()
+        components.queryItems = [URLQueryItem(name: "q", value: query)]
+        return try await get("api/users/search?\(components.percentEncodedQuery ?? "")")
+    }
+
+    func matchContacts(phones: [String], emails: [String]) async throws -> [User] {
+        struct Body: Encodable { let phones: [String]; let emails: [String] }
+        return try await call("POST", "api/contacts/match", body: Body(phones: phones, emails: emails))
+    }
+
+    func markDelivered(gestureId: String) async throws {
+        let _: Ignored = try await call("POST", "api/gestures/\(gestureId)/delivered", body: Empty())
     }
 
     func uploadPhoto(_ jpeg: Data) async throws -> User {

@@ -11,6 +11,10 @@ settingsRouter.patch('/settings', requireDemoUser, async (req, res) => {
   const body = z
     .object({
       surpriseOptIn: z.boolean().optional(),
+      // Same setting as surpriseOptIn, under the name the app shows.
+      openToSupport: z.boolean().optional(),
+      surprisesOn: z.boolean().optional(),
+      phone: z.string().trim().max(30).nullable().optional(),
       paused: z.boolean().optional(),
       preferences: z
         .object({
@@ -28,7 +32,9 @@ settingsRouter.patch('/settings', requireDemoUser, async (req, res) => {
 
   if (useDatabase()) {
     const updated = await updateSettings(user.id, {
-      surpriseOptIn: body.data.surpriseOptIn,
+      surpriseOptIn: body.data.openToSupport ?? body.data.surpriseOptIn,
+      surprisesOn: body.data.surprisesOn,
+      phone: body.data.phone === '' ? null : body.data.phone,
       paused: body.data.paused,
       homeLocation: body.data.homeLocation,
       preferences: body.data.preferences,

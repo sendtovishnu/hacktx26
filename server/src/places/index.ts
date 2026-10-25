@@ -3,9 +3,9 @@ import { useMocks } from '../ai/llm.js';
 import type { Place } from '../types.js';
 import { searchMaps } from './serpapi.js';
 
-type Kind = 'coffee' | 'food' | 'dessert';
+type Kind = 'coffee' | 'matcha' | 'food' | 'dessert';
 
-const QUERY: Record<Kind, string> = { coffee: 'coffee', food: 'food', dessert: 'dessert' };
+const QUERY: Record<Kind, string> = { coffee: 'coffee', matcha: 'matcha cafe', food: 'food', dessert: 'dessert' };
 const cache = new Map<string, Place[]>();
 
 function fallback(kind: Kind): Place[] {

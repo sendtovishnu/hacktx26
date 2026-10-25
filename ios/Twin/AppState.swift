@@ -79,7 +79,20 @@ final class AppState: ObservableObject {
         api = AppState.makeAPI(useMock: useMock, serverURL: url, userId: userId, sessionToken: token)
     }
 
+    /// The real server's address, for turning photo paths into URLs. Nil in mock mode.
+    static private(set) var serverBase: URL?
+
+    /// Profile photos come back as paths like /api/photos/u_1?v=2.
+    static func resolve(_ path: String?) -> URL? {
+        guard let path, !path.isEmpty else { return nil }
+        if path.hasPrefix("http") { return URL(string: path) }
+        guard let base = serverBase else { return nil }
+        let root = base.absoluteString.hasSuffix("/") ? String(base.absoluteString.dropLast()) : base.absoluteString
+        return URL(string: root + (path.hasPrefix("/") ? path : "/" + path))
+    }
+
     private static func makeAPI(useMock: Bool, serverURL: String, userId: String, sessionToken: String?) -> TwinAPI {
+        serverBase = useMock ? nil : URL(string: serverURL)
         if !useMock, let url = URL(string: serverURL) {
             return APIClient(baseURL: url, userId: userId, sessionToken: sessionToken)
         }
@@ -92,6 +105,7 @@ final class AppState: ObservableObject {
         await reloadUsers()
         await reloadMe()
         startPolling()
+        if contactsConnected { try? await syncContacts() }
     }
 
     func reloadUsers() async {
@@ -250,6 +264,42 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// A revealed surprise is a surprise; otherwise the person is told what's coming.
+    static func headline(for gesture: Gesture) -> String {
+        let name = gesture.fromFriend.name.split(separator: " ").first.map(String.init) ?? gesture.fromFriend.name
+        if gesture.surprise == true { return "\(name) surprised you" }
+        switch gesture.type {
+        case .dropOff:
+            let what = gesture.note.lowercased().contains("matcha") ? "a matcha" : "something"
+            return "\(name) is bringing you \(what)"
+        case .hangout: return "\(name) planned a hangout with you"
+        case .message: return "\(name) sent you a note"
+        }
+    }
+
+    // MARK: Contacts
+
+    /// People on Twin from your phone's contacts, by user id, with the name you saved them under.
+    @Published private(set) var contactMatches: [String: String] = [:]
+
+    var contactsConnected: Bool { UserDefaults.standard.bool(forKey: "contactsConnected") }
+
+    /// Reads your contacts (after you allow it) and asks the server which of them are on Twin.
+    func syncContacts() async throws {
+        let contacts = try await ContactsReader.read()
+        let users = try await api.matchContacts(phones: contacts.flatMap(\.phones), emails: contacts.flatMap(\.emails))
+        var matches: [String: String] = [:]
+        for user in users {
+            let key = user.phone.flatMap(ContactsReader.phoneKey)
+            let contact = contacts.first { c in
+                (key != nil && c.phones.contains { ContactsReader.phoneKey($0) == key }) || c.emails.contains { $0.lowercased() == user.email.lowercased() }
+            }
+            matches[user.id] = contact?.name ?? user.name
+        }
+        contactMatches = matches
+        UserDefaults.standard.set(true, forKey: "contactsConnected")
+    }
+
     // MARK: Invites
 
     /// twin://invite/<code>, from the page an invite link opens.
@@ -296,7 +346,7 @@ final class AppState: ObservableObject {
                 Notifier.post(title: "\(nudge.fromUser.name) could use you", body: nudge.message)
             }
             if let surprise = freshSurprises.first {
-                Notifier.post(title: "Someone is thinking of you", body: surprise.note)
+                Notifier.post(title: AppState.headline(for: surprise), body: surprise.note)
                 activeSurprise = surprise
             }
         }

@@ -13,6 +13,8 @@ struct AccountView: View {
     @State private var working = false
     @State private var showImporter = false
     @State private var confirmSignOut = false
+    @State private var phone = ""
+    @State private var phoneSaved = false
 
     var body: some View {
         NavigationStack {
@@ -29,6 +31,28 @@ struct AccountView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 8)
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Eyebrow(text: "Phone number")
+                        HStack(spacing: 10) {
+                            TextField("Add your number", text: $phone)
+                                .font(Theme.body(16))
+                                .keyboardType(.phonePad)
+                                .textContentType(.telephoneNumber)
+                                .onChange(of: phone) { _, _ in phoneSaved = false }
+                            if phone != (state.me?.phone ?? "") {
+                                Button("Save") { Task { await savePhone() } }
+                                    .font(Theme.semibold(14))
+                            } else if phoneSaved {
+                                Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.sage)
+                            }
+                        }
+                        Text("Friends who have you in their contacts find you by this number.")
+                            .font(Theme.small(12))
+                            .foregroundStyle(Theme.ink3)
+                    }
+                    .card()
+                    .onAppear { phone = state.me?.phone ?? "" }
 
                     VStack(alignment: .leading, spacing: 14) {
                         Eyebrow(text: "Connected accounts")
@@ -149,6 +173,10 @@ struct AccountView: View {
                 Task { await importICS(result) }
             }
             .task { await loadSources() }
+            .pullToRefresh {
+                await state.reloadMe()
+                await loadSources()
+            }
         }
         .id(theme.accent)
         .tint(theme.accent.accent)
@@ -204,6 +232,19 @@ struct AccountView: View {
             let result = try await state.api.ingestGoogle()
             status = "Synced \(result.events) events, \(result.emails ?? 0) emails"
             await loadSources()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    private func savePhone() async {
+        do {
+            let trimmed = phone.trimmingCharacters(in: .whitespaces)
+            // An empty string clears the number on the server.
+            let user = try await state.api.updateSettings(SettingsPatch(phone: trimmed))
+            state.updateMe(user)
+            phone = user.phone ?? ""
+            phoneSaved = true
         } catch {
             self.error = error.localizedDescription
         }

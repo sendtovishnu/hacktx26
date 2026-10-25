@@ -36,23 +36,44 @@ export async function buildSuggestions(input: {
   gestureType: GestureType;
   near: string;
   nudgeMessage: string;
+  /** They said they needed space last time, so only notes, no visits. */
+  wantsSpace?: boolean;
 }): Promise<Suggestion[]> {
-  const { fromUser, gestureType, near, nudgeMessage } = input;
+  const { fromUser, gestureType, near, nudgeMessage, wantsSpace } = input;
   const drink = fromUser.preferences.coffeeOrder ?? 'coffee';
-  const places =
-    gestureType === 'message' ? [] : await findPlaces('coffee', near);
+  const [places, matchaPlaces] =
+    wantsSpace
+      ? [[], []]
+      : await Promise.all([findPlaces('coffee', near), findPlaces('matcha', near)]);
 
   const out: Suggestion[] = [];
-
-  if (gestureType === 'drop_off') {
-    for (const place of places.slice(0, 2)) {
-      out.push({
+  // Coffee and matcha are both on the table, so the friend can pick what fits.
+  const dropOffs = (): Suggestion[] => {
+    const list: Suggestion[] = [];
+    if (places[0]) {
+      list.push({
         gestureType: 'drop_off',
-        title: `Drop off ${article(drink)} from ${place.name}`,
-        detail: `${fromUser.name} is at ${near} — a quick drop-off won't cost study time.`,
-        place,
+        title: `Bring ${article(drink)} from ${places[0].name}`,
+        detail: `${fromUser.name} is at ${near}. A quick drop-off won't cost study time.`,
+        place: places[0],
+        item: drink,
       });
     }
+    const matchaSpot = matchaPlaces[0] ?? places[1];
+    if (matchaSpot) {
+      list.push({
+        gestureType: 'drop_off',
+        title: `Bring a matcha from ${matchaSpot.name}`,
+        detail: `Something green and calming, dropped off near ${near}.`,
+        place: matchaSpot,
+        item: 'matcha',
+      });
+    }
+    return list;
+  };
+
+  if (gestureType === 'drop_off') {
+    out.push(...dropOffs());
     out.push({
       gestureType: 'message',
       title: `Send ${fromUser.name} a note`,
@@ -66,22 +87,30 @@ export async function buildSuggestions(input: {
     };
     out.push({
       gestureType: 'hangout',
-      title: `Sit with ${fromUser.name} at ${spot.name}`,
-      detail: `${fromUser.name} likes company — a quiet study buddy helps.`,
+      title: `Plan a hangout at ${spot.name}`,
+      detail: `${fromUser.name} likes company. A short break together helps.`,
       place: spot,
     });
-    if (places[1]) {
-      out.push({
-        gestureType: 'hangout',
-        title: `Meet at ${places[1].name}`,
-        detail: `Take a short break together near ${near}.`,
-        place: places[1],
-      });
-    }
+    out.push(...dropOffs());
     out.push({
       gestureType: 'message',
       title: `Send ${fromUser.name} a note`,
       detail: nudgeMessage,
+    });
+  } else if (!wantsSpace) {
+    // No calendar to go on: lead with a note, but coffee, matcha and a hangout are still options.
+    out.push({
+      gestureType: 'message',
+      title: `Send ${fromUser.name} a note`,
+      detail: nudgeMessage,
+    });
+    out.push(...dropOffs());
+    const spot: Place = places[0] ?? { name: near, address: near, openNow: true };
+    out.push({
+      gestureType: 'hangout',
+      title: `Plan a hangout at ${spot.name}`,
+      detail: `A short break together near ${near}.`,
+      place: spot,
     });
   } else {
     out.push({
@@ -103,7 +132,7 @@ export async function buildSuggestions(input: {
     }
   }
 
-  return out.slice(0, 3);
+  return out.slice(0, 4);
 }
 
 /** Surprise note shown to the helped user after a gesture is sent. */
@@ -113,7 +142,7 @@ export function surpriseNoteFor(
 ): string {
   switch (choice.gestureType) {
     case 'drop_off': {
-      const drink = helped.preferences.coffeeOrder ?? 'coffee';
+      const drink = choice.item ?? helped.preferences.coffeeOrder ?? 'coffee';
       const from = choice.place ? ` from ${choice.place.name}` : '';
       return `${capitalizeFirst(article(drink))}${from} is on its way to you. You've got this!`;
     }

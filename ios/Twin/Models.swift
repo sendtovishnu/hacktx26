@@ -63,10 +63,26 @@ struct User: Codable, Identifiable, Hashable {
     var email: String
     var homeLocation: String
     var preferences: Preferences
+    /// "Open to support": the twin may tell friends when your week gets heavy.
     var surpriseOptIn: Bool
     var paused: Bool
-    /// Profile photo on the server, if the person uploaded one.
+    /// Profile photo on the server, if the person uploaded one. A path, resolved against the server URL.
     var photoUrl: String?
+    /// Surprises on: a friend's gesture stays hidden until it happens. Missing means on.
+    var surprisesOn: Bool?
+    /// How friends with you in their contacts find you.
+    var phone: String?
+}
+
+extension User {
+    var surprisesEnabled: Bool { surprisesOn ?? true }
+}
+
+/// Only the fields being changed are sent.
+struct SettingsPatch: Encodable {
+    var openToSupport: Bool?
+    var surprisesOn: Bool?
+    var phone: String?
 }
 
 /// A pending or just-accepted request. `user` is always the other person.
@@ -161,6 +177,8 @@ struct Suggestion: Codable, Hashable {
     var title: String
     var detail: String
     var place: Place?
+    /// What a drop-off brings, like "matcha".
+    var item: String?
 }
 
 struct Nudge: Codable, Identifiable, Hashable {
@@ -177,6 +195,14 @@ struct Nudge: Codable, Identifiable, Hashable {
     var moment: String?
     /// Why the twin nudged; only in the sender's privacy log.
     var reason: String?
+    /// What you did for them, so you can mark a surprise delivered.
+    var gesture: NudgeGesture?
+}
+
+struct NudgeGesture: Codable, Hashable {
+    var id: String
+    var surprise: Bool
+    var revealed: Bool
 }
 
 struct Gesture: Codable, Identifiable, Hashable {
@@ -189,6 +215,8 @@ struct Gesture: Codable, Identifiable, Hashable {
     var deliveredAt: String
     /// "helped" or "space": how the person said it landed. Their twin reads it next time.
     var reaction: String?
+    /// The person had surprises on, so this only showed up once the friend marked it delivered.
+    var surprise: Bool?
 }
 
 // Response wrappers

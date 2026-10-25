@@ -15,15 +15,25 @@ struct AddFriendsView: View {
     @State private var shareItem: ShareItem?
     @State private var status: String?
     @State private var error: String?
+    @State private var searchResults: [User] = []
+    @State private var searching = false
+    @State private var syncingContacts = false
 
     private var requests: FriendRequests { state.friendRequests }
     private var friendIds: Set<String> { Set(friends.map(\.friend.id)) }
+    private var trimmedQuery: String { query.trimmingCharacters(in: .whitespaces) }
+
+    /// Contacts first, then everyone else, in the order they came.
+    private func contactsFirst(_ users: [User]) -> [User] {
+        let inContacts = users.filter { state.contactMatches[$0.id] != nil }
+        return inContacts + users.filter { state.contactMatches[$0.id] == nil }
+    }
 
     private var people: [User] {
-        let others = state.users.filter { $0.id != state.demoUserId }
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return others.filter { !friendIds.contains($0.id) } }
-        return others.filter { $0.name.lowercased().contains(q) || $0.email.lowercased().contains(q) }
+        guard trimmedQuery.isEmpty else { return contactsFirst(searchResults) }
+        // People you may know: your contacts on Twin, then anyone else you aren't friends with yet.
+        let others = state.users.filter { $0.id != state.demoUserId && !friendIds.contains($0.id) }
+        return contactsFirst(others)
     }
 
     /// What a typed contact is, so one field takes either.
@@ -50,10 +60,18 @@ struct AddFriendsView: View {
 
                 searchField
 
+                if !state.contactsConnected {
+                    contactsCard
+                }
+
                 VStack(alignment: .leading, spacing: 4) {
-                    Eyebrow(text: query.isEmpty ? "People you may know" : "On Twin")
-                    if people.isEmpty {
-                        Text(query.isEmpty ? "You're friends with everyone we could find. Invite more below." : "No one by that name yet. Invite them below.")
+                    HStack {
+                        Eyebrow(text: trimmedQuery.isEmpty ? "People you may know" : "On Twin")
+                        Spacer()
+                        if searching { ProgressView().controlSize(.small) }
+                    }
+                    if people.isEmpty && !searching {
+                        Text(trimmedQuery.isEmpty ? "You're friends with everyone we could find. Invite more below." : "No one on Twin matches \u{201C}\(trimmedQuery)\u{201D}. Invite them below.")
                             .font(Theme.small())
                             .foregroundStyle(Theme.ink2)
                             .padding(.vertical, 8)
@@ -102,8 +120,22 @@ struct AddFriendsView: View {
         .scrollDismissesKeyboard(.interactively)
         .screenBackground()
         .withAccountButton()
-        .refreshable { await load() }
+        .pullToRefresh { await load() }
         .task(id: state.reloadToken) { await load() }
+        // Searches the server as you type, after a short pause.
+        .task(id: trimmedQuery) {
+            guard !trimmedQuery.isEmpty else {
+                searchResults = []
+                return
+            }
+            searching = true
+            defer { searching = false }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled else { return }
+            if let results = try? await state.api.searchUsers(trimmedQuery), !Task.isCancelled {
+                searchResults = results
+            }
+        }
         .sheet(item: $sheet) { sheet in
             CircleChoiceSheet(sheet: sheet) { tier in
                 try await run(sheet, tier: tier)
@@ -131,7 +163,7 @@ struct AddFriendsView: View {
     private var searchField: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass").foregroundStyle(Theme.ink3)
-            TextField("Search by name or email", text: $query)
+            TextField("Search by name, email or phone", text: $query)
                 .font(Theme.body(16))
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -178,9 +210,15 @@ struct AddFriendsView: View {
             Avatar(user: person, size: 42)
             VStack(alignment: .leading, spacing: 2) {
                 Text(person.name).font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
-                Text(person.homeLocation.components(separatedBy: ",").first ?? "")
-                    .font(Theme.small(12))
-                    .foregroundStyle(Theme.ink2)
+                if let contactName = state.contactMatches[person.id] {
+                    Label(contactName == person.name ? "In your contacts" : "In your contacts as \(contactName)", systemImage: "person.crop.circle.badge.checkmark")
+                        .font(Theme.small(12))
+                        .foregroundStyle(Theme.sageInk)
+                } else {
+                    Text(person.homeLocation.components(separatedBy: ",").first ?? "")
+                        .font(Theme.small(12))
+                        .foregroundStyle(Theme.ink2)
+                }
             }
             Spacer()
             if friendIds.contains(person.id) {
@@ -211,6 +249,36 @@ struct AddFriendsView: View {
                 .background(Theme.accent, in: Capsule())
         }
         .buttonStyle(.plain)
+    }
+
+    private var contactsCard: some View {
+        HStack(spacing: 12) {
+            IconBadge(systemImage: "person.crop.rectangle.stack")
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Find friends from your contacts").font(Theme.bodyStrong(15)).foregroundStyle(Theme.ink)
+                Text("See who's already on Twin. Your contacts aren't stored.")
+                    .font(Theme.small(12))
+                    .foregroundStyle(Theme.ink2)
+            }
+            Spacer(minLength: 0)
+            Button {
+                Task { await connectContacts() }
+            } label: {
+                if syncingContacts {
+                    ProgressView().tint(Theme.onAccent).frame(width: 60, height: 34)
+                } else {
+                    Text("Connect")
+                        .font(Theme.semibold(14))
+                        .foregroundStyle(Theme.onAccent)
+                        .padding(.horizontal, 14)
+                        .frame(height: 34)
+                }
+            }
+            .background(Theme.accent, in: Capsule())
+            .buttonStyle(.plain)
+            .disabled(syncingContacts)
+        }
+        .card()
     }
 
     private var inviteCard: some View {
@@ -269,7 +337,9 @@ struct AddFriendsView: View {
     // MARK: Actions
 
     private func load() async {
-        if state.users.isEmpty { await state.reloadUsers() }
+        // Always fresh, so people who joined since the app opened show up.
+        await state.reloadUsers()
+        if state.contactsConnected { try? await state.syncContacts() }
         do {
             friends = try await state.api.friends()
             await state.reloadFriendRequests()
@@ -316,6 +386,19 @@ struct AddFriendsView: View {
                 try? await Task.sleep(nanoseconds: 600_000_000)
                 shareItem = ShareItem(text: invite.message)
             }
+        }
+    }
+
+    private func connectContacts() async {
+        syncingContacts = true
+        defer { syncingContacts = false }
+        do {
+            try await state.syncContacts()
+            let count = state.contactMatches.count
+            status = count == 0 ? "None of your contacts are on Twin yet. Invite them below." : "Found \(count) \(count == 1 ? "contact" : "contacts") on Twin."
+            error = nil
+        } catch {
+            self.error = error.localizedDescription
         }
     }
 

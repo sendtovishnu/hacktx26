@@ -30,7 +30,7 @@ struct Avatar: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-            } else if let photoURL, let url = URL(string: photoURL) {
+            } else if let url = AppState.resolve(photoURL) {
                 AsyncImage(url: url) { phase in
                     if let image = phase.image {
                         image.resizable().scaledToFill()
@@ -54,7 +54,7 @@ struct Avatar: View {
             .fill(LinearGradient(colors: Theme.avatarColors(for: name), startPoint: .topLeading, endPoint: .bottomTrailing))
             .overlay(
                 Text(String(name.prefix(1)))
-                    .font(.custom(Theme.Typeface.serif, size: size * 0.42))
+                    .font(.custom(Theme.Typeface.display, size: size * 0.42))
                     .foregroundStyle(.white)
             )
     }

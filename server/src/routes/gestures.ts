@@ -7,6 +7,8 @@ import {
   getNudge,
   getNudgeDraftNote,
   insertGesture,
+  latestReaction,
+  revealGesture,
   listEvents,
   respectReaction,
   toCalendarEvents,
@@ -68,11 +70,14 @@ gesturesRouter.post('/gestures', requireDemoUser, async (req, res) => {
         ? await respectReaction(nudge.fromUser.id, user.id, gestureFor(signals, mins))
         : 'message';
       const near = nearLocation(signals, nudge.fromUser.homeLocation);
+      // Same inputs as GET /nudges/:id/suggestions, so the index points at the same choice.
+      const wantsSpace = (await latestReaction(nudge.fromUser.id, user.id)) === 'space';
       const suggestions = await buildSuggestions({
         fromUser: nudge.fromUser,
         gestureType,
         near,
         nudgeMessage: nudge.message,
+        wantsSpace,
       });
       const choice = suggestions[suggestionIndex];
       if (!choice) {
@@ -95,6 +100,8 @@ gesturesRouter.post('/gestures', requireDemoUser, async (req, res) => {
         placeAddress: choice.place?.address ?? null,
         note,
         deliveredAt,
+        // A note arrives as it's sent; only something planned can wait to be a surprise.
+        surprise: choice.gestureType !== 'message' && (nudge.fromUser.surprisesOn ?? true),
       });
       await updateNudgeStatus(nudgeId, 'acted');
 
@@ -162,4 +169,15 @@ gesturesRouter.post('/gestures', requireDemoUser, async (req, res) => {
       error: err instanceof Error ? err.message : 'Gesture failed',
     });
   }
+});
+
+// A surprise stays hidden until the friend says it happened; then the person gets the note.
+gesturesRouter.post('/gestures/:id/delivered', requireDemoUser, async (req, res) => {
+  const user = (req as DemoRequest).demoUser;
+  if (!useDatabase()) {
+    res.json({ ok: true });
+    return;
+  }
+  const ok = await revealGesture(req.params.id, user.id);
+  res.status(ok ? 200 : 404).json(ok ? { ok } : { error: 'Nothing to mark delivered.' });
 });

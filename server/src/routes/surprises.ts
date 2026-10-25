@@ -9,10 +9,7 @@ export const surprisesRouter = Router();
 surprisesRouter.get('/surprises', requireDemoUser, async (req, res) => {
   const user = (req as DemoRequest).demoUser;
   if (useDatabase()) {
-    if (!user.surpriseOptIn) {
-      res.json([]);
-      return;
-    }
+    // Surprises (surprisesOn) only appear once the friend marks them delivered.
     res.json(await listSurprisesForUser(user.id));
     return;
   }

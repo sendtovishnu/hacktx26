@@ -9,6 +9,10 @@ struct SurpriseView: View {
     @State private var appeared = false
     @State private var pulse = false
     @State private var reacted: String?
+    @State private var showFullNote = false
+
+    /// Long enough that it won't fit above the buttons, so it gets a "More".
+    private var noteIsLong: Bool { gesture.note.count > 140 }
 
     var body: some View {
         ZStack {
@@ -31,8 +35,8 @@ struct SurpriseView: View {
                 .opacity(appeared ? 1 : 0)
 
                 VStack(spacing: 8) {
-                    Text("Someone's thinking of you")
-                        .font(Theme.title(36))
+                    Text(AppState.headline(for: gesture))
+                        .font(Theme.title(34))
                         .tracking(-0.6)
                         .multilineTextAlignment(.center)
                     Text("From \(gesture.fromFriend.name)")
@@ -42,14 +46,26 @@ struct SurpriseView: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 24)
 
-                Text("\u{201C}\(gesture.note)\u{201D}")
-                    .font(Theme.quote())
-                    .lineSpacing(4)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 36)
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 12)
+                VStack(spacing: 8) {
+                    Text("\u{201C}\(gesture.note)\u{201D}")
+                        .font(Theme.quote())
+                        .lineSpacing(2)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.white)
+                        .lineLimit(noteIsLong ? 4 : nil)
+                        .fixedSize(horizontal: false, vertical: !noteIsLong)
+                    if noteIsLong {
+                        Button("More") { showFullNote = true }
+                            .font(Theme.semibold(14))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .overlay(Capsule().stroke(.white.opacity(0.6), lineWidth: 1))
+                    }
+                }
+                .padding(.horizontal, 36)
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 12)
 
                 if let place = gesture.place {
                     HStack(spacing: 8) {
@@ -109,6 +125,11 @@ struct SurpriseView: View {
             }
         }
         .environment(\.colorScheme, .light)
+        .sheet(isPresented: $showFullNote) {
+            FullNoteView(gesture: gesture)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
         .onAppear {
             withAnimation(.spring(response: 0.7, dampingFraction: 0.65)) { appeared = true }
             withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) { pulse = true }
@@ -121,5 +142,31 @@ struct SurpriseView: View {
         withAnimation { reacted = reaction }
         try? await Task.sleep(for: .seconds(1.6))
         dismiss()
+    }
+}
+
+/// The whole note, for when it's longer than the surprise screen can show.
+struct FullNoteView: View {
+    let gesture: Gesture
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    Avatar(user: gesture.fromFriend, size: 44)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("From \(gesture.fromFriend.name)").font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
+                        Text(DateText.ago(gesture.deliveredAt)).font(Theme.small(12)).foregroundStyle(Theme.ink3)
+                    }
+                }
+                Text(gesture.note)
+                    .font(Theme.quote(22))
+                    .foregroundStyle(Theme.ink)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(24)
+        }
+        .screenBackground()
     }
 }

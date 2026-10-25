@@ -25,6 +25,8 @@ final class MockAPI: TwinAPI {
     private struct StoredGesture {
         var gesture: Gesture
         var helpedUserId: String
+        /// A surprise stays hidden from the helped person until the friend marks it delivered.
+        var revealed = true
     }
 
     var currentUserId: String
@@ -308,7 +310,13 @@ final class MockAPI: TwinAPI {
     }
 
     func nudges() async throws -> [Nudge] {
-        nudgeList.filter { $0.toFriendId == currentUserId }
+        nudgeList.filter { $0.toFriendId == currentUserId }.map { nudge in
+            var nudge = nudge
+            if let stored = gestureList.first(where: { $0.gesture.nudgeId == nudge.id }) {
+                nudge.gesture = NudgeGesture(id: stored.gesture.id, surprise: stored.gesture.surprise ?? false, revealed: stored.revealed)
+            }
+            return nudge
+        }
     }
 
     func suggestions(nudgeId: String) async throws -> [Suggestion] {
@@ -330,6 +338,7 @@ final class MockAPI: TwinAPI {
         let helped = nudgeList[nudgeIndex].fromUser
         nudgeList[nudgeIndex].status = "acted"
 
+        let surprise = choice.gestureType != .message && (user(helped.id)?.surprisesEnabled ?? true)
         let gesture = Gesture(
             id: UUID().uuidString,
             nudgeId: nudgeId,
@@ -337,14 +346,34 @@ final class MockAPI: TwinAPI {
             type: choice.gestureType,
             place: choice.place,
             note: customNote ?? note(for: choice, helped: helped),
-            deliveredAt: DateText.now()
+            deliveredAt: DateText.now(),
+            surprise: surprise
         )
-        gestureList.append(StoredGesture(gesture: gesture, helpedUserId: helped.id))
+        gestureList.append(StoredGesture(gesture: gesture, helpedUserId: helped.id, revealed: !surprise))
         return gesture
     }
 
     func surprises() async throws -> [Gesture] {
-        gestureList.filter { $0.helpedUserId == currentUserId }.map(\.gesture)
+        gestureList.filter { $0.helpedUserId == currentUserId && $0.revealed }.map(\.gesture)
+    }
+
+    func markDelivered(gestureId: String) async throws {
+        await delay()
+        guard let index = gestureList.firstIndex(where: { $0.gesture.id == gestureId }) else { return }
+        gestureList[index].revealed = true
+        gestureList[index].gesture.deliveredAt = DateText.now()
+    }
+
+    func searchUsers(_ query: String) async throws -> [User] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return [] }
+        return allUsers.filter { $0.id != currentUserId && ($0.name.lowercased().contains(q) || $0.email.lowercased().contains(q)) }
+    }
+
+    /// Mock users have no phone numbers, so only emails match.
+    func matchContacts(phones: [String], emails: [String]) async throws -> [User] {
+        let wanted = Set(emails.map { $0.lowercased() })
+        return allUsers.filter { $0.id != currentUserId && wanted.contains($0.email.lowercased()) }
     }
 
     func react(toSurprise gestureId: String, reaction: String) async throws {
@@ -362,13 +391,14 @@ final class MockAPI: TwinAPI {
         )
     }
 
-    func updateSettings(surpriseOptIn: Bool?, paused: Bool?) async throws -> User {
+    func updateSettings(_ patch: SettingsPatch) async throws -> User {
         await delay()
         guard let index = allUsers.firstIndex(where: { $0.id == currentUserId }) else {
             throw APIError.notConfigured("Unknown demo user.")
         }
-        if let surpriseOptIn { allUsers[index].surpriseOptIn = surpriseOptIn }
-        if let paused { allUsers[index].paused = paused }
+        if let open = patch.openToSupport { allUsers[index].surpriseOptIn = open }
+        if let surprisesOn = patch.surprisesOn { allUsers[index].surprisesOn = surprisesOn }
+        if let phone = patch.phone { allUsers[index].phone = phone.isEmpty ? nil : phone }
         return allUsers[index]
     }
 

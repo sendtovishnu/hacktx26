@@ -17,7 +17,7 @@ struct NudgesView: View {
                             HStack(spacing: 14) {
                                 IconBadge(systemImage: "gift.fill", size: 46, radius: 16)
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text("From \(gesture.fromFriend.name)").font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
+                                    Text(AppState.headline(for: gesture)).font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
                                     Text(gesture.note).font(Theme.small()).foregroundStyle(Theme.ink2).lineLimit(2)
                                 }
                                 Spacer(minLength: 0)
@@ -59,7 +59,7 @@ struct NudgesView: View {
         .navigationDestination(for: Nudge.self) { nudge in
             SuggestionsView(nudge: nudge)
         }
-        .refreshable { await state.poll() }
+        .pullToRefresh { await state.poll() }
     }
 }
 
@@ -103,8 +103,8 @@ struct SuggestionsView: View {
     @State private var sendingIndex: Int?
     @State private var sent: Gesture?
     @State private var error: String?
-    @State private var noteDraft = ""
-    @State private var noteEdited = false
+    @State private var composing: ComposeChoice?
+    @State private var marking = false
 
     /// The latest copy from polling, so the moment from this friend's twin appears when it's ready.
     private var live: Nudge {
@@ -139,11 +139,10 @@ struct SuggestionsView: View {
                     .lineSpacing(2)
                     .foregroundStyle(Theme.ink)
 
-                if let sent {
-                    sentCard(sent)
-                } else if !alreadyActed {
+                if alreadyActed {
+                    sentCard
+                } else {
                     momentCard
-                    noteCard
                 }
 
                 Eyebrow(text: "Ways to help")
@@ -165,9 +164,16 @@ struct SuggestionsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .task { await load() }
-        .onAppear { if !noteEdited { noteDraft = live.draftNote ?? "" } }
-        .onChange(of: live.draftNote) { _, draft in
-            if !noteEdited { noteDraft = draft ?? "" }
+        .pullToRefresh {
+            await state.poll()
+            await load()
+        }
+        .sheet(item: $composing) { choice in
+            ComposeNoteSheet(nudge: live, suggestion: choice.suggestion) { note in
+                try await send(choice.index, note: note)
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -195,24 +201,6 @@ struct SuggestionsView: View {
         .animation(.easeInOut, value: live.moment)
     }
 
-    /// The note goes out in your words: the twin only drafts it.
-    private var noteCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Eyebrow(text: "Your note to \(firstName)")
-            TextField("Write something in your own words", text: $noteDraft, axis: .vertical)
-                .lineLimit(2...5)
-                .font(Theme.body(15))
-                .padding(12)
-                .background(Theme.cream, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .onChange(of: noteDraft) { _, text in
-                    if text != (live.draftNote ?? "") { noteEdited = true }
-                }
-            Label("Suggested by \(firstName)'s twin. Make it yours: it's sent from you.", systemImage: "sparkles")
-                .font(Theme.small(12)).foregroundStyle(Theme.ink3)
-        }
-        .card()
-    }
-
     private func suggestionCard(_ suggestion: Suggestion, index: Int) -> some View {
         let primary = index == 0
         return VStack(alignment: .leading, spacing: 12) {
@@ -227,7 +215,7 @@ struct SuggestionsView: View {
                 PlaceDetails(place: place)
             }
             Button {
-                Task { await send(index) }
+                composing = ComposeChoice(index: index, suggestion: suggestion)
             } label: {
                 HStack(spacing: 8) {
                     if sendingIndex == index {
@@ -243,14 +231,41 @@ struct SuggestionsView: View {
         .card()
     }
 
-    private func sentCard(_ gesture: Gesture) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Done. \(nudge.fromUser.name) gets a surprise.", systemImage: "checkmark.seal.fill")
-                .font(Theme.bodyStrong(15))
-                .foregroundStyle(Theme.sageInk)
-            Text("\u{201C}\(gesture.note)\u{201D}")
-                .font(Theme.quote(17))
-                .foregroundStyle(Theme.ink2)
+    /// After you act: a surprise waits for you to say it happened; anything else is already on its way.
+    private var sentCard: some View {
+        let gesture = live.gesture ?? sent.map { NudgeGesture(id: $0.id, surprise: $0.surprise ?? false, revealed: !($0.surprise ?? false)) }
+        let waiting = gesture.map { $0.surprise && !$0.revealed } ?? false
+        return VStack(alignment: .leading, spacing: 10) {
+            if waiting {
+                Label("It's a surprise. \(firstName) doesn't know.", systemImage: "gift.fill")
+                    .font(Theme.bodyStrong(15))
+                    .foregroundStyle(Theme.sageInk)
+                Text("Once you've done it, tap below and \(firstName) gets your note.")
+                    .font(Theme.small())
+                    .foregroundStyle(Theme.ink2)
+                Button {
+                    Task { await markDelivered() }
+                } label: {
+                    HStack(spacing: 8) {
+                        if marking { ProgressView().tint(Theme.onAccent) }
+                        Text("Mark as delivered")
+                    }
+                }
+                .buttonStyle(PrimaryButtonStyle(height: 46))
+                .disabled(marking || gesture == nil)
+            } else {
+                Label(gesture?.surprise == true
+                      ? "Delivered. \(firstName) has your note."
+                      : "Done. \(firstName) got your note.",
+                      systemImage: "checkmark.seal.fill")
+                    .font(Theme.bodyStrong(15))
+                    .foregroundStyle(Theme.sageInk)
+            }
+            if let note = sent?.note {
+                Text("\u{201C}\(note)\u{201D}")
+                    .font(Theme.quote(17))
+                    .foregroundStyle(Theme.ink2)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -260,7 +275,7 @@ struct SuggestionsView: View {
 
     private func symbol(for type: GestureType) -> String {
         switch type {
-        case .dropOff: return "cup.and.saucer"
+        case .dropOff: return "cup.and.saucer.fill"
         case .hangout: return "figure.walk"
         case .message: return "bubble.left"
         }
@@ -277,15 +292,23 @@ struct SuggestionsView: View {
         }
     }
 
-    private func send(_ index: Int) async {
+    private func send(_ index: Int, note: String) async throws {
         sendingIndex = index
         defer { sendingIndex = nil }
+        let gesture = try await state.api.sendGesture(nudgeId: nudge.id, suggestionIndex: index, note: note)
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) { sent = gesture }
+        error = nil
+        await state.poll()
+    }
+
+    private func markDelivered() async {
+        guard let id = live.gesture?.id ?? sent?.id else { return }
+        marking = true
+        defer { marking = false }
         do {
-            let note = noteDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-            let gesture = try await state.api.sendGesture(nudgeId: nudge.id, suggestionIndex: index, note: note.isEmpty ? nil : note)
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) { sent = gesture }
-            error = nil
+            try await state.api.markDelivered(gestureId: id)
             await state.poll()
+            error = nil
         } catch {
             self.error = error.localizedDescription
         }
@@ -300,6 +323,131 @@ private struct SuggestionButtonStyle: ViewModifier {
             content.buttonStyle(PrimaryButtonStyle(height: 46))
         } else {
             content.buttonStyle(SoftButtonStyle(height: 46))
+        }
+    }
+}
+
+struct ComposeChoice: Identifiable {
+    let index: Int
+    let suggestion: Suggestion
+    var id: Int { index }
+}
+
+/// You write the note. The twin's draft is only a starting point you can clear.
+struct ComposeNoteSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let nudge: Nudge
+    let suggestion: Suggestion
+    var onSend: (String) async throws -> Void
+
+    @State private var note = ""
+    @State private var sending = false
+    @State private var error: String?
+    @FocusState private var focused: Bool
+
+    private var firstName: String {
+        nudge.fromUser.name.split(separator: " ").first.map(String.init) ?? nudge.fromUser.name
+    }
+
+    private var isSurprise: Bool {
+        suggestion.gestureType != .message && nudge.fromUser.surprisesEnabled
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Eyebrow(text: "Your note to \(firstName)", color: Theme.accent)
+                        Text(suggestion.title)
+                            .font(Theme.heading(22))
+                            .foregroundStyle(Theme.ink)
+                    }
+                    .padding(.top, 24)
+
+                    Label(
+                        isSurprise
+                            ? "It's a surprise. \(firstName) won't know until you mark it delivered, then they get this note."
+                            : suggestion.gestureType == .message
+                                ? "\(firstName) gets this note right away."
+                                : "\(firstName) has surprises off, so they'll get a heads-up with this note now.",
+                        systemImage: isSurprise ? "gift" : "bell"
+                    )
+                    .font(Theme.small())
+                    .foregroundStyle(Theme.ink2)
+
+                    TextEditor(text: $note)
+                        .font(Theme.quote(19))
+                        .foregroundStyle(Theme.ink)
+                        .scrollContentBackground(.hidden)
+                        .focused($focused)
+                        .frame(minHeight: 180)
+                        .padding(12)
+                        .background(Theme.cream, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(alignment: .topLeading) {
+                            if note.isEmpty {
+                                Text("Write it in your own words")
+                                    .font(Theme.quote(19))
+                                    .foregroundStyle(Theme.ink3)
+                                    .padding(.horizontal, 17)
+                                    .padding(.vertical, 20)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+
+                    HStack {
+                        if !note.isEmpty {
+                            Button("Clear") { note = "" }
+                                .font(Theme.semibold(13))
+                                .foregroundStyle(Theme.ink2)
+                        }
+                        Spacer()
+                        Text("\(note.count)/500")
+                            .font(Theme.small(12))
+                            .foregroundStyle(note.count > 500 ? Theme.accentDeep : Theme.ink3)
+                    }
+
+                    Label("Started by \(firstName)'s twin. It's sent from you, so make it yours.", systemImage: "sparkles")
+                        .font(Theme.small(12))
+                        .foregroundStyle(Theme.ink3)
+
+                    ErrorText(message: error)
+                }
+                .padding(.horizontal, 20)
+            }
+            .scrollDismissesKeyboard(.interactively)
+
+            Button {
+                Task { await send() }
+            } label: {
+                HStack(spacing: 8) {
+                    if sending { ProgressView().tint(Theme.onAccent) }
+                    Text(isSurprise ? "Plan the surprise" : "Send")
+                }
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(trimmed.isEmpty || note.count > 500 || sending)
+            .opacity(trimmed.isEmpty ? 0.5 : 1)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+        }
+        .screenBackground()
+        .onAppear {
+            if note.isEmpty { note = nudge.draftNote ?? "" }
+            focused = true
+        }
+    }
+
+    private var trimmed: String { note.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    private func send() async {
+        sending = true
+        defer { sending = false }
+        do {
+            try await onSend(trimmed)
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
         }
     }
 }

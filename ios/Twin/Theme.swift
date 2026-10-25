@@ -149,19 +149,21 @@ enum Theme {
     }
 
     // MARK: Type
+    // Nunito's rounded letters keep the app warm; friends' notes are in Caveat, so they read handwritten.
     enum Typeface {
-        static let serif = "Fraunces-SemiBold"
-        static let serifItalic = "Fraunces-Italic"
-        static let sans = "DMSans9pt-Regular"
-        static let sansMedium = "DMSans9pt-Medium"
-        static let sansSemiBold = "DMSans9pt-SemiBold"
-        static let sansBold = "DMSans9pt-Bold"
+        static let display = "Nunito-ExtraBold"
+        static let handwritten = "CaveatRoman-Regular"
+        static let sans = "Nunito-Regular"
+        static let sansMedium = "Nunito-SemiBold"
+        static let sansSemiBold = "Nunito-SemiBold"
+        static let sansBold = "Nunito-Bold"
     }
 
-    static func display(_ size: CGFloat = 44) -> Font { .custom(Typeface.serif, size: size) }
-    static func title(_ size: CGFloat = 34) -> Font { .custom(Typeface.serif, size: size) }
-    static func heading(_ size: CGFloat = 22) -> Font { .custom(Typeface.serif, size: size) }
-    static func quote(_ size: CGFloat = 22) -> Font { .custom(Typeface.serifItalic, size: size) }
+    static func display(_ size: CGFloat = 44) -> Font { .custom(Typeface.display, size: size) }
+    static func title(_ size: CGFloat = 34) -> Font { .custom(Typeface.display, size: size) }
+    static func heading(_ size: CGFloat = 22) -> Font { .custom(Typeface.display, size: size) }
+    /// Caveat runs small, so notes are drawn about a third larger than the size asked for.
+    static func quote(_ size: CGFloat = 22) -> Font { .custom(Typeface.handwritten, size: size * 1.35) }
     static func body(_ size: CGFloat = 15) -> Font { .custom(Typeface.sans, size: size) }
     static func bodyStrong(_ size: CGFloat = 16) -> Font { .custom(Typeface.sansBold, size: size) }
     static func small(_ size: CGFloat = 13) -> Font { .custom(Typeface.sans, size: size) }
@@ -214,7 +216,7 @@ struct Eyebrow: View {
     }
 }
 
-/// Screen header used instead of the system large title, so headlines use Fraunces.
+/// Screen header used instead of the system large title, so headlines use the app font.
 struct ScreenHeader: View {
     let eyebrow: String
     let title: String
@@ -394,5 +396,17 @@ struct TwinMark: View {
         }
         .frame(width: width, height: width * 40 / 64)
         .accessibilityLabel("Twin")
+    }
+}
+
+extension View {
+    /// Pull to refresh on every screen. Holds the spinner for at least a moment,
+    /// so even a fast reload visibly pulls down, spins and settles back.
+    func pullToRefresh(_ action: @escaping () async -> Void) -> some View {
+        refreshable {
+            async let minimum: Void = { try? await Task.sleep(nanoseconds: 900_000_000) }()
+            await action()
+            await minimum
+        }
     }
 }

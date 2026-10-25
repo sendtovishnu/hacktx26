@@ -66,7 +66,7 @@ struct HomeView: View {
         .withAccountButton()
         .task(id: state.reloadToken) { await load() }
         .onAppear { Task { await load() } }
-        .refreshable { await load() }
+        .pullToRefresh { await load() }
         .onChange(of: selected) { _, _ in sheetDetent = .medium }
         .sheet(item: $selected) { entry in
             FriendProfileSheet(entry: entry, onEdit: { sheetDetent = .large }) { updated in

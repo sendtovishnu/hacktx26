@@ -38,18 +38,14 @@ type UserRow = {
   preferences: User['preferences'] | string;
   surprise_opt_in: boolean;
   paused: boolean;
+  surprises_on?: boolean;
+  phone?: string | null;
+  photo_updated_at?: Date | null;
 };
 
-type FriendshipRow = {
+type FriendshipRow = UserRow & {
   friend_id: string;
   tier: Tier;
-  id: string;
-  name: string;
-  email: string;
-  home_location: string;
-  preferences: User['preferences'] | string;
-  surprise_opt_in: boolean;
-  paused: boolean;
 };
 
 function parsePreferences(value: UserRow['preferences']): User['preferences'] {
@@ -68,7 +64,91 @@ export function mapUser(row: UserRow): User {
     preferences: parsePreferences(row.preferences),
     surpriseOptIn: row.surprise_opt_in,
     paused: row.paused,
+    openToSupport: row.surprise_opt_in,
+    surprisesOn: row.surprises_on ?? true,
+    phone: row.phone ?? undefined,
+    // Relative, so it works behind any host; the app resolves it against its server URL.
+    photoUrl: row.photo_updated_at ? `/api/photos/${row.id}?v=${row.photo_updated_at.getTime()}` : undefined,
   };
+}
+
+/**
+ * Columns added after launch. Runs once at startup so every SELECT * sees them.
+ * New people are open to support with surprises on until they say otherwise.
+ */
+export async function ensureUserExtras(): Promise<void> {
+  await query(`
+    ALTER TABLE users ALTER COLUMN surprise_opt_in SET DEFAULT true;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS surprises_on BOOLEAN NOT NULL DEFAULT true;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_updated_at TIMESTAMPTZ;
+    CREATE TABLE IF NOT EXISTS user_photos (
+      user_id TEXT PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+      jpeg BYTEA NOT NULL
+    );
+    ALTER TABLE gestures ADD COLUMN IF NOT EXISTS is_surprise BOOLEAN NOT NULL DEFAULT false;
+    -- Existing gestures were shown right away, so they count as revealed.
+    ALTER TABLE gestures ADD COLUMN IF NOT EXISTS revealed_at TIMESTAMPTZ DEFAULT now();`);
+  await ensureTwinExtras();
+}
+
+export async function savePhoto(userId: string, jpeg: Buffer): Promise<User | null> {
+  await query(
+    `INSERT INTO user_photos (user_id, jpeg) VALUES ($1, $2)
+     ON CONFLICT (user_id) DO UPDATE SET jpeg = EXCLUDED.jpeg`,
+    [userId, jpeg],
+  );
+  const { rows } = await query<UserRow>('UPDATE users SET photo_updated_at = now() WHERE id = $1 RETURNING *', [userId]);
+  return rows[0] ? mapUser(rows[0]) : null;
+}
+
+export async function deletePhoto(userId: string): Promise<User | null> {
+  await query('DELETE FROM user_photos WHERE user_id = $1', [userId]);
+  const { rows } = await query<UserRow>('UPDATE users SET photo_updated_at = NULL WHERE id = $1 RETURNING *', [userId]);
+  return rows[0] ? mapUser(rows[0]) : null;
+}
+
+export async function getPhoto(userId: string): Promise<Buffer | null> {
+  const { rows } = await query<{ jpeg: Buffer }>('SELECT jpeg FROM user_photos WHERE user_id = $1', [userId]);
+  return rows[0]?.jpeg ?? null;
+}
+
+/** Last 10 digits, so "+1 (512) 555-0199" and "5125550199" match. */
+export function phoneKey(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '');
+  return digits.length >= 7 ? digits.slice(-10) : null;
+}
+
+/** People on Twin whose phone or email is in your contacts. Nothing you send is stored. */
+export async function matchContacts(userId: string, phones: string[], emails: string[]): Promise<User[]> {
+  const phoneKeys = [...new Set(phones.map(phoneKey).filter((k): k is string => Boolean(k)))];
+  const emailKeys = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
+  const { rows } = await query<UserRow>(
+    `SELECT * FROM users
+     WHERE id <> $1
+       AND ((phone IS NOT NULL AND right(regexp_replace(phone, '\\D', '', 'g'), 10) = ANY($2))
+            OR lower(email) = ANY($3))
+     ORDER BY name`,
+    [userId, phoneKeys, emailKeys],
+  );
+  return rows.map(mapUser);
+}
+
+/** Name, email or phone; works for everyone on Twin, not just the people already loaded. */
+export async function searchUsers(userId: string, q: string): Promise<User[]> {
+  const term = q.trim();
+  if (!term) return [];
+  const digits = term.replace(/\D/g, '');
+  const { rows } = await query<UserRow>(
+    `SELECT * FROM users
+     WHERE id <> $1
+       AND (name ILIKE '%' || $2 || '%' OR email ILIKE '%' || $2 || '%'
+            OR ($3 <> '' AND length($3) >= 4 AND regexp_replace(coalesce(phone, ''), '\\D', '', 'g') LIKE '%' || $3 || '%'))
+     ORDER BY (name ILIKE $2 || '%') DESC, name
+     LIMIT 25`,
+    [userId, term, digits],
+  );
+  return rows.map(mapUser);
 }
 
 export async function listUsers(): Promise<User[]> {
@@ -102,7 +182,8 @@ export async function findOrCreateUserByEmail(
   if (existing.rows[0]) return { user: mapUser(existing.rows[0]), created: false };
   const id = `u_${randomBytes(6).toString('hex')}`;
   const { rows } = await query<UserRow>(
-    `INSERT INTO users (id, name, email, preferences) VALUES ($1, $2, $3, $4::jsonb) RETURNING *`,
+    `INSERT INTO users (id, name, email, preferences, surprise_opt_in, surprises_on)
+     VALUES ($1, $2, $3, $4::jsonb, true, true) RETURNING *`,
     [id, name, email, JSON.stringify({ likes: 'company' })],
   );
   return { user: mapUser(rows[0]), created: true };
@@ -365,8 +446,7 @@ export async function claimEmailInvites(user: User): Promise<void> {
 
 export async function getFriends(userId: string): Promise<FriendEntry[]> {
   const { rows } = await query<FriendshipRow>(
-    `SELECT f.friend_id, f.tier, u.id, u.name, u.email, u.home_location,
-            u.preferences, u.surprise_opt_in, u.paused
+    `SELECT f.friend_id, f.tier, u.*
      FROM friendships f
      JOIN users u ON u.id = f.friend_id
      WHERE f.user_id = $1
@@ -399,6 +479,8 @@ export async function upsertFriendship(
 
 export type SettingsPatch = {
   surpriseOptIn?: boolean;
+  surprisesOn?: boolean;
+  phone?: string | null;
   paused?: boolean;
   homeLocation?: string;
   preferences?: Partial<User['preferences']>;
@@ -414,6 +496,8 @@ export async function updateSettings(
   const next: User = {
     ...current,
     surpriseOptIn: patch.surpriseOptIn ?? current.surpriseOptIn,
+    surprisesOn: patch.surprisesOn ?? current.surprisesOn ?? true,
+    phone: patch.phone === undefined ? current.phone : patch.phone ?? undefined,
     paused: patch.paused ?? current.paused,
     homeLocation: patch.homeLocation ?? current.homeLocation,
     preferences: {
@@ -427,7 +511,9 @@ export async function updateSettings(
      SET surprise_opt_in = $2,
          paused = $3,
          home_location = $4,
-         preferences = $5::jsonb
+         preferences = $5::jsonb,
+         surprises_on = $6,
+         phone = $7
      WHERE id = $1
      RETURNING *`,
     [
@@ -436,6 +522,8 @@ export async function updateSettings(
       next.paused,
       next.homeLocation,
       JSON.stringify(next.preferences),
+      next.surprisesOn,
+      next.phone ?? null,
     ],
   );
   return rows[0] ? mapUser(rows[0]) : null;
@@ -992,11 +1080,22 @@ export async function listNudgesToUser(userId: string): Promise<Nudge[]> {
     `SELECT * FROM nudges WHERE to_friend_id = $1 ORDER BY created_at DESC`,
     [userId],
   );
+  const { rows: gestures } = await query<{ id: string; nudge_id: string; is_surprise: boolean; revealed_at: Date | null }>(
+    `SELECT id, nudge_id, is_surprise, revealed_at FROM gestures WHERE nudge_id = ANY($1)`,
+    [rows.map((r) => r.id)],
+  );
   const out: Nudge[] = [];
   for (const row of rows) {
     const nudge = await hydrateNudge(mapNudgeRow(row));
+    const g = gestures.find((x) => x.nudge_id === row.id);
     // The reason is written for the sender's privacy log, not for the friend.
-    if (nudge) out.push({ ...nudge, reason: undefined });
+    if (nudge) {
+      out.push({
+        ...nudge,
+        reason: undefined,
+        gesture: g ? { id: g.id, surprise: g.is_surprise, revealed: g.revealed_at !== null } : undefined,
+      });
+    }
   }
   return out;
 }
@@ -1026,11 +1125,15 @@ export async function insertGesture(input: {
   placeAddress?: string | null;
   note: string;
   deliveredAt?: string;
+  /** Hidden from the person until the friend marks it delivered. */
+  surprise?: boolean;
 }): Promise<void> {
   await query(
     `INSERT INTO gestures (
-       id, nudge_id, from_friend_id, type, place_name, place_address, note, delivered_at
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8::timestamptz, now()))
+       id, nudge_id, from_friend_id, type, place_name, place_address, note, delivered_at,
+       is_surprise, revealed_at
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8::timestamptz, now()),
+       $9, CASE WHEN $9 THEN NULL ELSE now() END)
      ON CONFLICT (id) DO UPDATE SET
        note = EXCLUDED.note,
        place_name = EXCLUDED.place_name,
@@ -1044,8 +1147,19 @@ export async function insertGesture(input: {
       input.placeAddress ?? null,
       input.note,
       input.deliveredAt ?? null,
+      input.surprise ?? false,
     ],
   );
+}
+
+/** The friend says the surprise has happened, so the person now sees it and the note. */
+export async function revealGesture(id: string, friendId: string): Promise<boolean> {
+  const { rowCount } = await query(
+    `UPDATE gestures SET revealed_at = now()
+     WHERE id = $1 AND from_friend_id = $2 AND revealed_at IS NULL`,
+    [id, friendId],
+  );
+  return (rowCount ?? 0) > 0;
 }
 
 type GestureRow = {
@@ -1058,6 +1172,8 @@ type GestureRow = {
   note: string;
   delivered_at: Date | string;
   reaction?: 'helped' | 'space' | null;
+  is_surprise?: boolean;
+  revealed_at?: Date | null;
 };
 
 export type DbGesture = {
@@ -1070,6 +1186,7 @@ export type DbGesture = {
   note: string;
   deliveredAt: string;
   reaction?: 'helped' | 'space';
+  surprise: boolean;
 };
 
 function mapGestureRow(row: GestureRow): DbGesture {
@@ -1081,8 +1198,9 @@ function mapGestureRow(row: GestureRow): DbGesture {
     placeName: row.place_name,
     placeAddress: row.place_address,
     note: row.note,
-    deliveredAt: toIso(row.delivered_at),
+    deliveredAt: toIso(row.revealed_at ?? row.delivered_at),
     reaction: row.reaction ?? undefined,
+    surprise: row.is_surprise ?? false,
   };
 }
 
@@ -1140,6 +1258,7 @@ async function hydrateGesture(row: DbGesture): Promise<Gesture | null> {
     note: row.note,
     deliveredAt: row.deliveredAt,
     reaction: row.reaction,
+    surprise: row.surprise,
   };
   if (row.placeName) {
     const place: Place = {
@@ -1169,8 +1288,8 @@ export async function listSurprisesForUser(userId: string): Promise<Gesture[]> {
     `SELECT g.*
      FROM gestures g
      JOIN nudges n ON n.id = g.nudge_id
-     WHERE n.from_user_id = $1
-     ORDER BY g.delivered_at DESC`,
+     WHERE n.from_user_id = $1 AND g.revealed_at IS NOT NULL
+     ORDER BY g.revealed_at DESC`,
     [userId],
   );
   const out: Gesture[] = [];

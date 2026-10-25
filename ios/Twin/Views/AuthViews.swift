@@ -214,7 +214,9 @@ struct SignInView: View {
 
 struct SetupView: View {
     @EnvironmentObject private var state: AppState
-    @State private var surpriseOn = true
+    @State private var openToSupport = true
+    @State private var surprisesOn = true
+    @State private var phone = ""
     @State private var notificationsAsked = false
     @State private var saving = false
 
@@ -239,25 +241,42 @@ struct SetupView: View {
                         .buttonStyle(.plain)
                         VStack(alignment: .leading, spacing: 4) {
                             Eyebrow(text: "Hi \(state.me?.name ?? "there")")
-                            Text("Two quick things")
+                            Text("A few quick things")
                                 .font(Theme.title(30))
                                 .foregroundStyle(Theme.ink)
                         }
                     }
                     .padding(.top, 40)
 
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        setting("heart", "Open to support",
+                                "When your calendar gets heavy, your twin can quietly let your close friends know. Off means it never tells anyone.",
+                                isOn: $openToSupport)
+                        Rectangle().fill(Theme.cream).frame(height: 1)
+                        setting("gift", "Surprises",
+                                "On: when a friend brings you a coffee or plans a hangout, you won't know until it happens. Off: you get a heads-up first.",
+                                isOn: $surprisesOn)
+                    }
+                    .card()
+
+                    VStack(alignment: .leading, spacing: 10) {
                         HStack(alignment: .top, spacing: 14) {
-                            IconBadge(systemImage: "gift")
+                            IconBadge(systemImage: "phone")
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Surprise support").font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
-                                Text("When your week gets heavy, your twin can quietly let your closest friends know. You won't be asked each time.")
+                                Text("Your phone number").font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
+                                Text("Optional. Friends who have you in their contacts can find you on Twin.")
                                     .font(Theme.small())
                                     .foregroundStyle(Theme.ink2)
                             }
-                            Spacer(minLength: 0)
-                            Toggle("", isOn: $surpriseOn).labelsHidden().tint(Theme.sage)
                         }
+                        TextField("(512) 555-0123", text: $phone)
+                            .font(Theme.body(16))
+                            .keyboardType(.phonePad)
+                            .textContentType(.telephoneNumber)
+                            .padding(.horizontal, 14)
+                            .frame(height: 48)
+                            .background(Theme.paper, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.linen, lineWidth: 1))
                     }
                     .card()
 
@@ -306,13 +325,31 @@ struct SetupView: View {
             .padding(.bottom, 20)
         }
         .screenBackground()
-        .onAppear { surpriseOn = state.me?.surpriseOptIn ?? true }
+        .onAppear {
+            openToSupport = state.me?.surpriseOptIn ?? true
+            surprisesOn = state.me?.surprisesEnabled ?? true
+            phone = state.me?.phone ?? ""
+        }
+    }
+
+    private func setting(_ icon: String, _ title: String, _ detail: String, isOn: Binding<Bool>) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            IconBadge(systemImage: icon)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(Theme.bodyStrong()).foregroundStyle(Theme.ink)
+                Text(detail).font(Theme.small()).foregroundStyle(Theme.ink2)
+            }
+            Spacer(minLength: 0)
+            Toggle("", isOn: isOn).labelsHidden().tint(Theme.sage)
+        }
     }
 
     private func finish() async {
         saving = true
         defer { saving = false }
-        if let user = try? await state.api.updateSettings(surpriseOptIn: surpriseOn, paused: nil) {
+        let trimmed = phone.trimmingCharacters(in: .whitespaces)
+        let patch = SettingsPatch(openToSupport: openToSupport, surprisesOn: surprisesOn, phone: trimmed.isEmpty ? nil : trimmed)
+        if let user = try? await state.api.updateSettings(patch) {
             state.updateMe(user)
         }
         state.hasCompletedSetup = true

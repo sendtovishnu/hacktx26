@@ -12,14 +12,20 @@ struct PrivacyView: View {
                 ScreenHeader(eyebrow: "Privacy", title: "Only what you choose")
 
                 VStack(spacing: 16) {
-                    control("Surprise support", "Closest friends can be nudged when your week gets heavy",
+                    control("Open to support",
+                            state.me?.surpriseOptIn ?? true
+                                ? "When your calendar gets heavy, your twin can let your close friends know"
+                                : "Your twin won't tell any friend you could use support",
                             isOn: settingBinding(\.surpriseOptIn) { value in
-                                try await state.api.updateSettings(surpriseOptIn: value, paused: nil)
+                                try await state.api.updateSettings(SettingsPatch(openToSupport: value))
                             })
                     Rectangle().fill(Theme.cream).frame(height: 1)
-                    control("Pause all nudges", "For when you'd rather have space",
-                            isOn: settingBinding(\.paused) { value in
-                                try await state.api.updateSettings(surpriseOptIn: nil, paused: value)
+                    control("Surprises",
+                            state.me?.surprisesEnabled ?? true
+                                ? "When a friend plans something for you, you won't know until it happens"
+                                : "You'll get a heads-up when a friend is bringing or planning something",
+                            isOn: settingBinding(\.surprisesEnabled) { value in
+                                try await state.api.updateSettings(SettingsPatch(surprisesOn: value))
                             })
                 }
                 .card()
@@ -132,7 +138,7 @@ struct PrivacyView: View {
             serverURLDraft = state.serverURL
             await load()
         }
-        .refreshable { await load() }
+        .pullToRefresh { await load() }
     }
 
     private func control(_ title: String, _ subtitle: String, isOn: Binding<Bool>) -> some View {

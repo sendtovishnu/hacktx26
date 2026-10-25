@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getLatestSignal,
   getNudge,
+  latestReaction,
   listEvents,
   listNudgesToUser,
   respectReaction,
@@ -77,11 +78,13 @@ nudgesRouter.get('/nudges/:id/suggestions', requireDemoUser, async (req, res) =>
       nudge.toFriendId,
     );
     const near = nearLocation(signals, nudge.fromUser.homeLocation);
+    const wantsSpace = useDatabase() && (await latestReaction(nudge.fromUser.id, user.id)) === 'space';
     const suggestions = await buildSuggestions({
       fromUser: nudge.fromUser,
       gestureType,
       near,
       nudgeMessage: nudge.message,
+      wantsSpace,
     });
     res.json(suggestions);
   } catch (err) {
