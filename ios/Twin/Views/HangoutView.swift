@@ -33,7 +33,7 @@ struct HangoutView: View {
                     VStack(spacing: 14) {
                         TwinMark(width: 72)
                         ProgressView().tint(Theme.accent)
-                        Text("Your twins are comparing calendars and what you both love\u{2026}")
+                        Text("Your FirstMates are comparing calendars and what you both love\u{2026}")
                             .font(Theme.small())
                             .multilineTextAlignment(.center)
                             .foregroundStyle(Theme.ink2)

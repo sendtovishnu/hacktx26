@@ -308,7 +308,7 @@ final class MockAPI: TwinAPI {
         await delay()
         let me = try currentUser()
         guard var signals = signalsByUser[me.id] else {
-            throw APIError.notConfigured("Refresh your twin first.")
+            throw APIError.notConfigured("Refresh your FirstMate first.")
         }
         summaryOverrides[me.id] = (closest, close, friend)
         signals.summaryForClosest = closest
@@ -324,7 +324,7 @@ final class MockAPI: TwinAPI {
         await delay()
         let me = try currentUser()
         guard var signals = signalsByUser[me.id] else {
-            throw APIError.notConfigured("Refresh your twin first.")
+            throw APIError.notConfigured("Refresh your FirstMate first.")
         }
         summaryOverrides[me.id] = nil
         let ai = baseSignals(me, checkin: nil)

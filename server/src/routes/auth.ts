@@ -293,7 +293,7 @@ function successPage(opts: {
   alreadyConnected?: boolean;
 }): string {
   const syncLine = opts.alreadyConnected
-    ? `<p>Google is already connected for this demo user. Open the iOS app and tap <strong>Refresh my twin</strong>.</p>`
+    ? `<p>Google is already connected for this demo user. Open the iOS app and tap <strong>Refresh my FirstMate</strong>.</p>`
     : `<p>Synced <strong>${opts.events}</strong> calendar events and <strong>${opts.emails}</strong> emails
           (source: <code>${opts.source}</code>).</p>`;
   return layout(

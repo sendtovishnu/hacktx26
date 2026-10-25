@@ -38,7 +38,7 @@ struct WelcomeView: View {
             VStack(spacing: 14) {
                 Button("Get started", action: onStart)
                     .buttonStyle(PrimaryButtonStyle())
-                Label("Your calendar and email never leave your twin.", systemImage: "lock.fill")
+                Label("Your calendar and email never leave your FirstMate.", systemImage: "lock.fill")
                     .font(Theme.small())
                     .foregroundStyle(Theme.ink2)
                     .labelStyle(SageIconLabelStyle())
@@ -245,7 +245,7 @@ struct SetupView: View {
                         Text("What are you into?")
                             .font(Theme.title(30))
                             .foregroundStyle(Theme.ink)
-                        Text("Pick as many as you like. When a friend wants to show up for you, your twin suggests things you'd actually love.")
+                        Text("Pick as many as you like. When a friend wants to show up for you, your FirstMate suggests things you'd actually love.")
                             .font(Theme.small())
                             .foregroundStyle(Theme.ink2)
                     }
@@ -302,7 +302,7 @@ struct SetupView: View {
 
                     VStack(alignment: .leading, spacing: 16) {
                         setting("heart", "Open to support",
-                                "When your calendar gets heavy, your twin can quietly let your close friends know. Off means it never tells anyone.",
+                                "When your calendar gets heavy, your FirstMate can quietly let your close friends know. Off means it never tells anyone.",
                                 isOn: $openToSupport)
                         Rectangle().fill(Theme.cream).frame(height: 1)
                         setting("gift", "Surprises",

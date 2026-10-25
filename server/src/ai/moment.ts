@@ -31,6 +31,7 @@ export async function planMoment(input: {
   const prompt = `You are ${friendName}'s digital twin. ${personName}'s twin says ${personName} could use support, and suggests ${input.activity ? `"${input.activity}"` : `a ${input.gestureType.replace('_', '-')}`}${input.placeName ? ` at ${input.placeName}` : ''}.
 Find the best moment in the next 3 days, between 9am and 10pm, when ${friendName} can realistically do it: a gap in ${friendName}'s calendar, ideally when ${friendName} is already near ${personName}, and when ${personName} is not busy.
 It is now ${local(now.toISOString())} (America/Chicago).
+In this app you are called ${friendName}'s FirstMate; never say "twin" in what you write.
 
 ${friendName}'s calendar (yours to read):
 ${JSON.stringify(input.friendEvents.map((e) => ({ title: e.title, start: local(e.start), end: local(e.end), location: e.location })))}

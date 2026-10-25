@@ -391,7 +391,7 @@ final class AppState: ObservableObject {
         }
         for surprise in newSurprises where freshSurprises.contains(surprise.id) {
             // A surprise shows up once the friend marked it done: time to say how it landed.
-            let body = surprise.surprise == true ? "\(surprise.note)\nTap to tell your twin how it landed." : surprise.note
+            let body = surprise.surprise == true ? "\(surprise.note)\nTap to tell your FirstMate how it landed." : surprise.note
             Notifier.post(title: AppState.headline(for: surprise), body: body,
                           route: .surprise(surprise.id), id: "surprise-\(surprise.id)")
         }

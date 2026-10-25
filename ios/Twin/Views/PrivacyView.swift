@@ -16,8 +16,8 @@ struct PrivacyView: View {
                 VStack(spacing: 16) {
                     control("Open to support",
                             state.me?.surpriseOptIn ?? true
-                                ? "When your calendar gets heavy, your twin can let your close friends know"
-                                : "Your twin won't tell any friend you could use support",
+                                ? "When your calendar gets heavy, your FirstMate can let your close friends know"
+                                : "Your FirstMate won't tell any friend you could use support",
                             isOn: settingBinding(\.surpriseOptIn) { value in
                                 try await state.api.updateSettings(SettingsPatch(openToSupport: value))
                             })
@@ -33,7 +33,7 @@ struct PrivacyView: View {
                 .card()
 
                 VStack(alignment: .leading, spacing: 12) {
-                    Eyebrow(text: "Your twin never shares")
+                    Eyebrow(text: "Your FirstMate never shares")
                     neverRow("calendar", "Your calendar entries")
                     neverRow("envelope", "Your emails or who sent them")
                     neverRow("list.number", "How you ranked anyone")
@@ -95,7 +95,7 @@ struct PrivacyView: View {
                             }
                         }
                     }
-                    Text("Your twin never tells you who it nudged until they act, so a surprise stays a surprise.")
+                    Text("Your FirstMate never tells you who it nudged until they act, so a surprise stays a surprise.")
                         .font(Theme.small(12))
                         .foregroundStyle(Theme.ink3)
                 }
@@ -240,7 +240,7 @@ private struct TwinHandshake: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.left.arrow.right.circle")
-                    Text("How your twins worked it out")
+                    Text("How your FirstMates worked it out")
                     Spacer()
                     Image(systemName: open ? "chevron.up" : "chevron.down").font(.system(size: 12, weight: .semibold))
                 }
@@ -251,10 +251,10 @@ private struct TwinHandshake: View {
 
             if open {
                 VStack(alignment: .leading, spacing: 12) {
-                    step(1, "Your twin", "Read \(yourSources). Saw you could use support.")
+                    step(1, "Your FirstMate", "Read \(yourSources). Saw you could use support.")
                     step(2, "To \(friendName)", "\u{201C}\(nudge.message)\u{201D}")
-                    step(3, "To \(friendName)'s twin", "Only when you're busy and where you usually are. Never what you're doing.")
-                    step(4, "\(friendName)'s twin", nudge.moment.map { "Read \(friendName)'s own calendar and found: \u{201C}\($0)\u{201D}" }
+                    step(3, "To \(friendName)'s FirstMate", "Only when you're busy and where you usually are. Never what you're doing.")
+                    step(4, "\(friendName)'s FirstMate", nudge.moment.map { "Read \(friendName)'s own calendar and found: \u{201C}\($0)\u{201D}" }
                          ?? "Read \(friendName)'s own calendar to find a good time.")
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: "lock.fill").foregroundStyle(Theme.sageInk)

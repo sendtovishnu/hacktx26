@@ -144,7 +144,7 @@ struct InterestsSheet: View {
                         Text("What are you into?")
                             .font(Theme.title(28))
                             .foregroundStyle(Theme.ink)
-                        Text("Your twin uses these to suggest ways friends can show up for you, and ways you can show up for them.")
+                        Text("Your FirstMate uses these to suggest ways friends can show up for you, and ways you can show up for them.")
                             .font(Theme.small())
                             .foregroundStyle(Theme.ink2)
                     }

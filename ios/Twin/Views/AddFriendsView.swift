@@ -522,7 +522,7 @@ struct CircleChoiceSheet: View {
                         }
                     }
 
-                    Text("Your circles decide who your twin can reach out to. You can change a friend's circle later from their profile.")
+                    Text("Your circles decide who your FirstMate can reach out to. You can change a friend's circle later from their profile.")
                         .font(Theme.small(12))
                         .foregroundStyle(Theme.ink3)
 

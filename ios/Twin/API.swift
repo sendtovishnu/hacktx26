@@ -236,14 +236,14 @@ final class APIClient: TwinAPI {
         struct Body: Encodable { let summaryForClosest: String; let summaryForClose: String; let summaryForFriend: String }
         let state: TwinState = try await call("PATCH", "api/twin/summaries",
                                               body: Body(summaryForClosest: closest, summaryForClose: close, summaryForFriend: friend))
-        guard let signals = state.signals else { throw APIError.notConfigured("Refresh your twin first.") }
+        guard let signals = state.signals else { throw APIError.notConfigured("Refresh your FirstMate first.") }
         return signals
     }
 
     /// Drops your edits and goes back to the twin's own wording.
     func resetSummaries() async throws -> Signals {
         let state: TwinState = try await send(makeRequest("DELETE", "api/twin/summaries"))
-        guard let signals = state.signals else { throw APIError.notConfigured("Refresh your twin first.") }
+        guard let signals = state.signals else { throw APIError.notConfigured("Refresh your FirstMate first.") }
         return signals
     }
 

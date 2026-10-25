@@ -51,6 +51,7 @@ export function twinPrompt(user: User, signals: Signals, friends: TwinFriendInpu
   }));
 
   return `You are ${name}'s digital twin. Decide whether any friends should be nudged to support ${name}.
+In this app you are called ${name}'s FirstMate. If you ever refer to yourself or to anyone's assistant in what you write, say "FirstMate" (e.g. "Jay's FirstMate"), never "twin" or "digital twin".
 
 Only nudge friends ranked close or closest. Closest may hear summary_for_closest; close may hear summary_for_close only. Never nudge for doing_fine.
 Each friend's "may_hear" is the only information about ${name}'s week you may put in their message. Never mention calendars, emails or exact events beyond it.

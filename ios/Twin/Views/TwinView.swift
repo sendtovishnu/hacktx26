@@ -65,10 +65,10 @@ struct TwinView: View {
             Text(signals == nil ? "How's your week going?" : "Anything else on your mind?")
                 .font(Theme.heading(19))
                 .foregroundStyle(Theme.ink)
-            Text("Tell your twin what your calendar can't: a hard conversation, a deadline, feeling off. Friends only ever hear the short line above.")
+            Text("Tell your FirstMate what your calendar can't: a hard conversation, a deadline, feeling off. Friends only ever hear the short line above.")
                 .font(Theme.small())
                 .foregroundStyle(Theme.ink2)
-            TextField("Something your twin doesn\u{2019}t know yet", text: $entryDraft, axis: .vertical)
+            TextField("Something your FirstMate doesn\u{2019}t know yet", text: $entryDraft, axis: .vertical)
                 .font(Theme.body())
                 .lineLimit(1...4)
                 .padding(12)
@@ -78,7 +78,7 @@ struct TwinView: View {
             } label: {
                 HStack(spacing: 8) {
                     if adding || refreshing { ProgressView().tint(Theme.onAccent) } else { Image(systemName: "plus") }
-                    Text(adding ? "Adding\u{2026}" : refreshing ? "Updating your twin\u{2026}" : "Add to my twin")
+                    Text(adding ? "Adding\u{2026}" : refreshing ? "Updating your FirstMate\u{2026}" : "Add to my FirstMate")
                 }
             }
             .buttonStyle(PrimaryButtonStyle(height: 46))
@@ -124,7 +124,7 @@ struct TwinView: View {
                         Text("Reading your week...")
                     } else {
                         Image(systemName: "sparkles")
-                        Text("Refresh my twin")
+                        Text("Refresh my FirstMate")
                     }
                 }
             }
@@ -141,7 +141,7 @@ struct TwinView: View {
                           background: badgeBackground(for: signals.supportLevel),
                           foreground: color(for: signals.supportLevel))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Your twin's read").font(Theme.small()).foregroundStyle(Theme.ink2)
+                    Text("Your FirstMate's read").font(Theme.small()).foregroundStyle(Theme.ink2)
                     Text(signals.supportLevel.label).font(Theme.heading()).foregroundStyle(Theme.ink)
                 }
             }
@@ -179,13 +179,13 @@ struct TwinView: View {
                                 .accessibilityLabel("Remove")
                             }
                         }
-                        Text("Remove anything that's over. Your twin stops counting it on the next refresh.")
+                        Text("Remove anything that's over. Your FirstMate stops counting it on the next refresh.")
                             .font(Theme.small(11))
                             .foregroundStyle(Theme.ink3)
                     }
                     .padding(.top, 6)
                 } label: {
-                    Text("What you told your twin (\(told.count))")
+                    Text("What you told your FirstMate (\(told.count))")
                         .font(Theme.semibold(13))
                         .foregroundStyle(Theme.ink2)
                 }
@@ -244,13 +244,13 @@ struct TwinView: View {
                 shareEditor(tier: .closest, text: $closestDraft, field: .closest, hint: "A short line about your week")
                 shareEditor(tier: .close, text: $closeDraft, field: .close, hint: "Something general, no details")
                 shareEditor(tier: .friend, text: $friendDraft, field: .friend, hint: "Optional. Leave empty and they hear nothing")
-                Text("Your twin writes these from your week, and keeps your words once you edit them. Friends never see your calendar or email.")
+                Text("Your FirstMate writes these from your week, and keeps your words once you edit them. Friends never see your calendar or email.")
                     .font(Theme.small(12))
                     .foregroundStyle(Theme.ink3)
                 Button {
                     Task { await resetShare() }
                 } label: {
-                    Label("Use my twin\u{2019}s wording", systemImage: "sparkles")
+                    Label("Use my FirstMate\u{2019}s wording", systemImage: "sparkles")
                         .font(Theme.semibold(13))
                         .foregroundStyle(Theme.accentDeep)
                 }
@@ -405,7 +405,7 @@ struct TwinView: View {
                 .foregroundStyle(Theme.sageInk)
             Text(nothingNew
                  ? "Nothing new since your friends last heard, so no one was nudged again. Add something above if there's more going on."
-                 : "Got it. Your twin is keeping you company this week.")
+                 : "Got it. Your FirstMate is keeping you company this week.")
                 .font(Theme.semibold(14))
                 .foregroundStyle(Theme.sageInk)
         }

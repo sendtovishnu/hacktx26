@@ -138,7 +138,7 @@ struct AccountView: View {
                         Eyebrow(text: "Connected accounts")
                         sourceRow(
                             title: "Google Calendar and Gmail",
-                            subtitle: sources.google ? "Read-only. Emails are summarized, then deleted." : "Lets your twin notice busy weeks and deadlines",
+                            subtitle: sources.google ? "Read-only. Emails are summarized, then deleted." : "Lets your FirstMate notice busy weeks and deadlines",
                             systemImage: "calendar",
                             connected: sources.google
                         ) {

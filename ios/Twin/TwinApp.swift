@@ -121,7 +121,7 @@ struct RootView: View {
                 .tabItem { Label("Home", systemImage: "house.fill") }
                 .tag(AppTab.home)
             NavigationStack { TwinView() }
-                .tabItem { Label("Twin", systemImage: "sparkles") }
+                .tabItem { Label("FirstMate", systemImage: "sparkles") }
                 .tag(AppTab.twin)
             NavigationStack(path: $state.nudgePath) { NudgesView() }
                 .tabItem { Label("Nudges", systemImage: "bell.fill") }

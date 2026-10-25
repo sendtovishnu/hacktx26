@@ -34,7 +34,7 @@ struct NudgesView: View {
                         Text("All quiet")
                             .font(Theme.heading())
                             .foregroundStyle(Theme.ink)
-                        Text("When someone close to you could use support, their twin will let you know here.")
+                        Text("When someone close to you could use support, their FirstMate will let you know here.")
                             .font(Theme.body())
                             .multilineTextAlignment(.center)
                             .foregroundStyle(Theme.ink2)
@@ -125,7 +125,7 @@ struct SuggestionsView: View {
                     Avatar(user: nudge.fromUser, size: 58, glow: true)
                         .padding(12)
                     VStack(alignment: .leading, spacing: 4) {
-                        Eyebrow(text: "A nudge from \(nudge.fromUser.name)'s twin", color: Theme.accent)
+                        Eyebrow(text: "A nudge from \(nudge.fromUser.name)'s FirstMate", color: Theme.accent)
                         Text("\(nudge.fromUser.name) could use you")
                             .font(Theme.heading(24))
                             .foregroundStyle(Theme.ink)
@@ -225,7 +225,7 @@ struct SuggestionsView: View {
         HStack(alignment: .top, spacing: 12) {
             IconBadge(systemImage: "clock.badge.checkmark")
             VStack(alignment: .leading, spacing: 4) {
-                Eyebrow(text: "Your twin found a moment", color: Theme.accent)
+                Eyebrow(text: "Your FirstMate found a moment", color: Theme.accent)
                 if let moment = live.moment {
                     Text(moment).font(Theme.body(15)).foregroundStyle(Theme.ink)
                         .transition(.opacity)
@@ -236,7 +236,7 @@ struct SuggestionsView: View {
                             .font(Theme.small()).foregroundStyle(Theme.ink2)
                     }
                 }
-                Text("Your twin sees your calendar. It only knows when \(firstName) is busy, never why.")
+                Text("Your FirstMate sees your calendar. It only knows when \(firstName) is busy, never why.")
                     .font(Theme.small(11)).foregroundStyle(Theme.ink3)
             }
         }
@@ -443,7 +443,7 @@ struct ComposeNoteSheet: View {
                             .foregroundStyle(note.count > 500 ? Theme.accentDeep : Theme.ink3)
                     }
 
-                    Label("Started by \(firstName)'s twin. It's sent from you, so make it yours.", systemImage: "sparkles")
+                    Label("Started by \(firstName)'s FirstMate. It's sent from you, so make it yours.", systemImage: "sparkles")
                         .font(Theme.small(12))
                         .foregroundStyle(Theme.ink3)
 

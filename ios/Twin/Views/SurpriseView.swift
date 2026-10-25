@@ -83,8 +83,8 @@ struct SurpriseView: View {
                 VStack(spacing: 10) {
                     if let reacted {
                         Label(reacted == "space"
-                              ? "Got it. Next time your twin will ask for a note instead of a visit."
-                              : "Got it. Your twin will remember this helped.",
+                              ? "Got it. Next time your FirstMate will ask for a note instead of a visit."
+                              : "Got it. Your FirstMate will remember this helped.",
                               systemImage: "sparkles")
                             .font(Theme.small(13))
                             .foregroundStyle(.white)
@@ -92,7 +92,7 @@ struct SurpriseView: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .transition(.opacity)
                     } else {
-                        Text("How did this land? Only your twin sees your answer.")
+                        Text("How did this land? Only your FirstMate sees your answer.")
                             .font(Theme.small(13))
                             .foregroundStyle(.white.opacity(0.85))
                     }
